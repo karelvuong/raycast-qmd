@@ -1,4 +1,4 @@
-import { execFile, ChildProcess, spawn } from "child_process";
+import { execFile, exec, ChildProcess, spawn } from "child_process";
 import { promisify } from "util";
 import { existsSync } from "fs";
 import { homedir, platform } from "os";
@@ -6,6 +6,7 @@ import { join } from "path";
 import { DependencyStatus, QmdResult, ScoreColor } from "../types";
 
 const execFileAsync = promisify(execFile);
+const execAsync = promisify(exec);
 
 // Active embed process tracking
 let activeEmbedProcess: ChildProcess | null = null;
