@@ -1,6 +1,7 @@
 import { LocalStorage } from "@raycast/api";
 import { useCallback, useEffect, useState } from "react";
 import type { SearchHistoryItem, SearchMode } from "../types";
+import { searchLogger } from "../utils/logger";
 
 const HISTORY_KEY_PREFIX = "qmd-search-history";
 const MAX_HISTORY_ITEMS = 10;
@@ -35,7 +36,7 @@ export function useSearchHistory(searchMode: SearchMode): UseSearchHistoryResult
           setHistory([]);
         }
       } catch (error) {
-        console.error("Failed to load search history:", error);
+        searchLogger.error("Failed to load search history", { error });
         setHistory([]);
       } finally {
         setIsLoading(false);
@@ -64,7 +65,7 @@ export function useSearchHistory(searchMode: SearchMode): UseSearchHistoryResult
 
         // Save to storage (fire and forget)
         LocalStorage.setItem(historyKey, JSON.stringify(newHistory)).catch((error) => {
-          console.error("Failed to save search history:", error);
+          searchLogger.error("Failed to save search history", { error });
         });
 
         return newHistory;
@@ -78,7 +79,7 @@ export function useSearchHistory(searchMode: SearchMode): UseSearchHistoryResult
     try {
       await LocalStorage.removeItem(historyKey);
     } catch (error) {
-      console.error("Failed to clear search history:", error);
+      searchLogger.error("Failed to clear search history", { error });
     }
   }, [historyKey]);
 

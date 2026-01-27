@@ -46,16 +46,15 @@ export function parseContextList(output: string): QmdContext[] {
     // Description line (4 spaces indent)
     const descMatch = line.match(/^\s{4}(.+)$/);
     if (descMatch && currentCollection && currentPath) {
-      // Normalize path: add leading slash if not present and not root
-      let normalizedPath = currentPath;
-      if (currentPath === "/") {
-        normalizedPath = ""; // Root collection
-      } else if (!currentPath.startsWith("/")) {
-        normalizedPath = `/${currentPath}`; // Add leading slash for relative paths
-      }
+      // Build qmd:// URL preserving exact path format from qmd
+      // Root "/" becomes just the collection, other paths are appended with a separator
+      const qmdPath =
+        currentPath === "/"
+          ? `qmd://${currentCollection}`
+          : `qmd://${currentCollection}/${currentPath}`;
 
       contexts.push({
-        path: `qmd://${currentCollection}${normalizedPath}`,
+        path: qmdPath,
         description: descMatch[1].trim(),
       });
       currentPath = null; // Reset after adding context

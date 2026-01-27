@@ -1,7 +1,17 @@
-import { Action, ActionPanel, Form, Icon, popToRoot, showToast, Toast } from "@raycast/api";
+import {
+  Action,
+  ActionPanel,
+  Alert,
+  confirmAlert,
+  Form,
+  Icon,
+  popToRoot,
+  showToast,
+  Toast,
+} from "@raycast/api";
 import { useState } from "react";
 import { useDependencyCheck } from "./hooks/useDependencyCheck";
-import { runQmdRaw } from "./utils/qmd";
+import { getContexts, runQmdRaw } from "./utils/qmd";
 
 export default function Command() {
   const { isLoading: isDepsLoading, isReady } = useDependencyCheck();
@@ -29,23 +39,43 @@ export default function Command() {
       return;
     }
 
+    const pathTrimmed = values.path.trim();
+
+    // Check if context already exists
+    const existingContexts = await getContexts();
+    if (existingContexts.success && existingContexts.data) {
+      const existing = existingContexts.data.find((c) => c.path === pathTrimmed);
+      if (existing) {
+        const confirmed = await confirmAlert({
+          title: "Context Already Exists",
+          message: `A context already exists for "${pathTrimmed}". Do you want to replace it?`,
+          primaryAction: {
+            title: "Replace",
+            style: Alert.ActionStyle.Destructive,
+          },
+        });
+
+        if (!confirmed) {
+          return;
+        }
+
+        // Remove existing context first
+        await runQmdRaw(["context", "rm", pathTrimmed]);
+      }
+    }
+
     setIsSubmitting(true);
     const toast = await showToast({
       style: Toast.Style.Animated,
       title: "Adding context...",
     });
 
-    const result = await runQmdRaw([
-      "context",
-      "add",
-      values.path.trim(),
-      values.description.trim(),
-    ]);
+    const result = await runQmdRaw(["context", "add", pathTrimmed, values.description.trim()]);
 
     if (result.success) {
       toast.style = Toast.Style.Success;
       toast.title = "Context added";
-      toast.message = values.path.trim();
+      toast.message = pathTrimmed;
       await popToRoot();
     } else {
       toast.style = Toast.Style.Failure;

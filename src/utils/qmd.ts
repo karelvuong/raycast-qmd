@@ -11,6 +11,7 @@ import type {
   QmdResult,
   ScoreColor,
 } from "../types";
+import { collectionsLogger } from "./logger";
 import { parseCollectionList, parseContextList, parseFileList } from "./parsers";
 
 const execAsync = promisify(exec);
@@ -80,7 +81,7 @@ export function getCollectionPaths(): Record<string, string> {
       }
     }
   } catch (error) {
-    console.error("Failed to read qmd config:", error);
+    collectionsLogger.error("Failed to read qmd config", { error });
   }
 
   return paths;
