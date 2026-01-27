@@ -71,7 +71,7 @@ export function useSearchHistory(searchMode: SearchMode): UseSearchHistoryResult
         return newHistory;
       });
     },
-    [historyKey]
+    [historyKey],
   );
 
   const clearHistory = useCallback(async () => {

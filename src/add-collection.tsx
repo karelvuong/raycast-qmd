@@ -79,12 +79,7 @@ export default function Command() {
       // Add context if provided
       if (values.context?.trim()) {
         const contextPath = `qmd://${values.name.trim()}`;
-        const contextResult = await runQmdRaw([
-          "context",
-          "add",
-          contextPath,
-          values.context.trim(),
-        ]);
+        const contextResult = await runQmdRaw(["context", "add", contextPath, values.context.trim()]);
 
         if (!contextResult.success) {
           // Collection was added but context failed - still show partial success
@@ -200,12 +195,7 @@ export default function Command() {
 
       <Form.Separator />
 
-      <Form.Checkbox
-        id="showAdvanced"
-        label="Show Advanced Options"
-        onChange={setShowAdvanced}
-        value={showAdvanced}
-      />
+      <Form.Checkbox id="showAdvanced" label="Show Advanced Options" onChange={setShowAdvanced} value={showAdvanced} />
 
       {showAdvanced && (
         <Form.TextField

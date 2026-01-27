@@ -3,14 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import type {
-  DependencyStatus,
-  QmdCollection,
-  QmdContext,
-  QmdFileListItem,
-  QmdResult,
-  ScoreColor,
-} from "../types";
+import type { DependencyStatus, QmdCollection, QmdContext, QmdFileListItem, QmdResult, ScoreColor } from "../types";
 import { collectionsLogger } from "./logger";
 import { parseCollectionList, parseContextList, parseFileList } from "./parsers";
 
@@ -268,7 +261,7 @@ export async function checkAllDependencies(): Promise<DependencyStatus> {
  */
 export async function runQmd<T>(
   args: string[],
-  options: { timeout?: number; includeJson?: boolean } = {}
+  options: { timeout?: number; includeJson?: boolean } = {},
 ): Promise<QmdResult<T>> {
   const { timeout = 30_000, includeJson = true } = options;
 
@@ -321,10 +314,7 @@ export async function runQmd<T>(
 /**
  * Execute a QMD command without JSON parsing (for commands that don't return JSON)
  */
-export async function runQmdRaw(
-  args: string[],
-  options: { timeout?: number } = {}
-): Promise<QmdResult<string>> {
+export async function runQmdRaw(args: string[], options: { timeout?: number } = {}): Promise<QmdResult<string>> {
   const { timeout = 30_000 } = options;
 
   try {
@@ -389,9 +379,7 @@ export async function getContexts(): Promise<QmdResult<QmdContext[]>> {
 /**
  * Get list of files in a collection (parses text output since --json not supported)
  */
-export async function getCollectionFiles(
-  collectionName: string
-): Promise<QmdResult<QmdFileListItem[]>> {
+export async function getCollectionFiles(collectionName: string): Promise<QmdResult<QmdFileListItem[]>> {
   const result = await runQmdRaw(["ls", collectionName]);
 
   if (!result.success) {
@@ -432,10 +420,7 @@ export interface UpdateResult {
  * Run update for all collections or a specific collection
  * Parses output to detect if embeddings are needed
  */
-export async function runUpdate(
-  collectionName?: string,
-  options: { pullFirst?: boolean } = {}
-): Promise<UpdateResult> {
+export async function runUpdate(collectionName?: string, options: { pullFirst?: boolean } = {}): Promise<UpdateResult> {
   const args = ["update"];
   if (collectionName) {
     args.push("-c", collectionName);

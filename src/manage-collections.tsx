@@ -87,9 +87,7 @@ export default function Command() {
             <ActionPanel>
               <Action
                 icon={Icon.Plus}
-                onAction={() =>
-                  launchCommand({ name: "add-collection", type: LaunchType.UserInitiated })
-                }
+                onAction={() => launchCommand({ name: "add-collection", type: LaunchType.UserInitiated })}
                 shortcut={{ modifiers: ["cmd"], key: "n" }}
                 title="Add Collection"
               />
@@ -271,17 +269,11 @@ function CollectionItem({ collection, onRefresh }: CollectionItemProps) {
       actions={
         <ActionPanel>
           <ActionPanel.Section>
-            <Action.Push
-              icon={Icon.List}
-              target={<CollectionFiles collection={collection} />}
-              title="List Files"
-            />
+            <Action.Push icon={Icon.List} target={<CollectionFiles collection={collection} />} title="List Files" />
             {collection.exists && <Action.ShowInFinder path={expandPath(collection.path)} />}
             <Action
               icon={Icon.Plus}
-              onAction={() =>
-                launchCommand({ name: "add-collection", type: LaunchType.UserInitiated })
-              }
+              onAction={() => launchCommand({ name: "add-collection", type: LaunchType.UserInitiated })}
               shortcut={{ modifiers: ["cmd"], key: "n" }}
               title="Add Collection"
             />
@@ -297,7 +289,7 @@ function CollectionItem({ collection, onRefresh }: CollectionItemProps) {
               icon={Icon.ArrowClockwise}
               onAction={handleReembed}
               shortcut={{ modifiers: ["cmd"], key: "e" }}
-              title="Re-Embed"
+              title="Regenerate Embeddings"
             />
             <Action
               icon={Icon.ArrowClockwise}
@@ -404,11 +396,7 @@ function CollectionFiles({ collection }: CollectionFilesProps) {
       })}
 
       {files.length === 0 && !isLoading && (
-        <List.EmptyView
-          description="This collection has no indexed files"
-          icon={Icon.Document}
-          title="No Files"
-        />
+        <List.EmptyView description="This collection has no indexed files" icon={Icon.Document} title="No Files" />
       )}
     </List>
   );

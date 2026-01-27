@@ -82,7 +82,7 @@ export default function Command() {
               <Action.CopyToClipboard
                 content={`#${result.docid}`}
                 shortcut={{ modifiers: ["cmd", "shift"], key: "c" }}
-                title="Copy DocID"
+                title="Copy Document Id"
               />
             )}
             <Action
@@ -100,9 +100,7 @@ export default function Command() {
           <Detail.Metadata>
             {result.path && <Detail.Metadata.Label text={result.path} title="Path" />}
             {result.docid && <Detail.Metadata.Label text={`#${result.docid}`} title="DocID" />}
-            {result.collection && (
-              <Detail.Metadata.Label text={result.collection} title="Collection" />
-            )}
+            {result.collection && <Detail.Metadata.Label text={result.collection} title="Collection" />}
           </Detail.Metadata>
         }
         navigationTitle={result.title || result.path}
@@ -114,11 +112,7 @@ export default function Command() {
     <List
       actions={
         <ActionPanel>
-          <Action
-            icon={Icon.Document}
-            onAction={() => fetchDocument(searchText)}
-            title="Get Document"
-          />
+          <Action icon={Icon.Document} onAction={() => fetchDocument(searchText)} title="Get Document" />
         </ActionPanel>
       }
       isLoading={isLoading}
@@ -133,11 +127,7 @@ export default function Command() {
             <List.Item
               actions={
                 <ActionPanel>
-                  <Action
-                    icon={Icon.Document}
-                    onAction={() => handleSelect(suggestion)}
-                    title="Select"
-                  />
+                  <Action icon={Icon.Document} onAction={() => handleSelect(suggestion)} title="Select" />
                 </ActionPanel>
               }
               icon={Icon.Document}
@@ -167,11 +157,7 @@ export default function Command() {
         <List.EmptyView
           actions={
             <ActionPanel>
-              <Action
-                icon={Icon.Document}
-                onAction={() => fetchDocument(searchText)}
-                title="Get Document"
-              />
+              <Action icon={Icon.Document} onAction={() => fetchDocument(searchText)} title="Get Document" />
             </ActionPanel>
           }
           description={`Search for: ${searchText}`}

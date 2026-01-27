@@ -93,8 +93,7 @@ export default function Command() {
 
   if (!(status || isLoading)) {
     // Detect specific error types for better messaging
-    const isDatabaseLocked =
-      error?.includes("SQLITE_BUSY") || error?.includes("database is locked");
+    const isDatabaseLocked = error?.includes("SQLITE_BUSY") || error?.includes("database is locked");
     const isEmbedRunning = error?.includes("embed") || error?.includes("embedding");
 
     let title = "Unable to Load Status";
@@ -164,11 +163,7 @@ export default function Command() {
           title="Database"
         />
         {status?.lastUpdated && (
-          <List.Item
-            accessories={[{ text: status.lastUpdated }]}
-            icon={Icon.Clock}
-            title="Last Updated"
-          />
+          <List.Item accessories={[{ text: status.lastUpdated }]} icon={Icon.Clock} title="Last Updated" />
         )}
       </List.Section>
 
@@ -183,10 +178,7 @@ export default function Command() {
           accessories={[
             {
               text: `${status?.embeddedDocuments ?? 0}`,
-              icon:
-                status?.pendingEmbeddings === 0
-                  ? { source: Icon.CheckCircle, tintColor: Color.Green }
-                  : undefined,
+              icon: status?.pendingEmbeddings === 0 ? { source: Icon.CheckCircle, tintColor: Color.Green } : undefined,
             },
           ]}
           icon={Icon.Stars}
@@ -219,9 +211,7 @@ export default function Command() {
               <ActionPanel>
                 <Action.Push
                   icon={Icon.Cog}
-                  target={
-                    <CollectionDetail collectionName={collection.name} onRefresh={revalidate} />
-                  }
+                  target={<CollectionDetail collectionName={collection.name} onRefresh={revalidate} />}
                   title="Manage Collection"
                 />
                 <Action icon={Icon.ArrowClockwise} onAction={revalidate} title="Refresh" />
@@ -397,9 +387,7 @@ function CollectionDetail({ collectionName, onRefresh }: CollectionDetailProps) 
           actions={
             <ActionPanel>
               {collectionPath && <Action.ShowInFinder path={collectionPath} />}
-              {collectionPath && (
-                <Action.CopyToClipboard content={collectionPath} title="Copy Path" />
-              )}
+              {collectionPath && <Action.CopyToClipboard content={collectionPath} title="Copy Path" />}
             </ActionPanel>
           }
           icon={Icon.Folder}
@@ -413,21 +401,17 @@ function CollectionDetail({ collectionName, onRefresh }: CollectionDetailProps) 
         <List.Item
           actions={
             <ActionPanel>
-              <Action icon={Icon.ArrowClockwise} onAction={handleReembed} title="Re-Embed" />
+              <Action icon={Icon.ArrowClockwise} onAction={handleReembed} title="Regenerate Embeddings" />
             </ActionPanel>
           }
           icon={Icon.Stars}
           subtitle="Regenerate embeddings for this collection"
-          title="Re-Embed"
+          title="Regenerate Embeddings"
         />
         <List.Item
           actions={
             <ActionPanel>
-              <Action
-                icon={Icon.ArrowClockwise}
-                onAction={() => handleUpdate(false)}
-                title="Update Index"
-              />
+              <Action icon={Icon.ArrowClockwise} onAction={() => handleUpdate(false)} title="Update Index" />
             </ActionPanel>
           }
           icon={Icon.ArrowClockwise}
@@ -437,11 +421,7 @@ function CollectionDetail({ collectionName, onRefresh }: CollectionDetailProps) 
         <List.Item
           actions={
             <ActionPanel>
-              <Action
-                icon={Icon.Download}
-                onAction={() => handleUpdate(true)}
-                title="Pull & Update"
-              />
+              <Action icon={Icon.Download} onAction={() => handleUpdate(true)} title="Pull & Update" />
             </ActionPanel>
           }
           icon={Icon.Download}
@@ -479,9 +459,7 @@ function CollectionDetail({ collectionName, onRefresh }: CollectionDetailProps) 
                   <Action.CopyToClipboard content={fullPath} title="Copy Path" />
                 </ActionPanel>
               }
-              icon={
-                file.embedded ? Icon.Document : { source: Icon.Document, tintColor: Color.Yellow }
-              }
+              icon={file.embedded ? Icon.Document : { source: Icon.Document, tintColor: Color.Yellow }}
               key={file.path}
               title={file.title || file.path}
             />

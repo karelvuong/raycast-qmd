@@ -36,8 +36,7 @@ export function SearchResultItem({
   const scorePercentage = formatScorePercentage(result.score);
 
   // Map score color to Raycast Color
-  const tagColor =
-    scoreColor === "green" ? Color.Green : scoreColor === "yellow" ? Color.Yellow : Color.Red;
+  const tagColor = scoreColor === "green" ? Color.Green : scoreColor === "yellow" ? Color.Yellow : Color.Red;
 
   const accessories: List.Item.Accessory[] = [{ tag: { value: scorePercentage, color: tagColor } }];
 
@@ -54,9 +53,7 @@ export function SearchResultItem({
         <ActionPanel>
           <ActionPanel.Section>
             {/* Primary action: Open file in editor */}
-            {fullPath && fileExists && (
-              <Action.Open icon={Icon.Document} target={fullPath} title="Open in Editor" />
-            )}
+            {fullPath && fileExists && <Action.Open icon={Icon.Document} target={fullPath} title="Open in Editor" />}
             {/* Show in Finder */}
             {fullPath && fileExists && <Action.ShowInFinder path={fullPath} />}
           </ActionPanel.Section>
@@ -97,7 +94,7 @@ export function SearchResultItem({
             <Action.CopyToClipboard
               content={result.docid}
               shortcut={{ modifiers: ["cmd", "opt"], key: "c" }}
-              title="Copy DocID"
+              title="Copy Document Id"
             />
           </ActionPanel.Section>
           <ActionPanel.Section title="Options">
@@ -142,19 +139,9 @@ export function SearchResultItem({
                 text={result.collection || "Unknown"}
                 title="Collection"
               />
-              <List.Item.Detail.Metadata.Label
-                icon={Icon.Document}
-                text={displayPath}
-                title="Path"
-              />
+              <List.Item.Detail.Metadata.Label icon={Icon.Document} text={displayPath} title="Path" />
               <List.Item.Detail.Metadata.Separator />
-              {contextLine && (
-                <List.Item.Detail.Metadata.Label
-                  icon={Icon.Text}
-                  text={contextLine}
-                  title="Context"
-                />
-              )}
+              {contextLine && <List.Item.Detail.Metadata.Label icon={Icon.Text} text={contextLine} title="Context" />}
               <List.Item.Detail.Metadata.Label text={result.docid} title="DocID" />
               <List.Item.Detail.Metadata.TagList title="Score">
                 <List.Item.Detail.Metadata.TagList.Item color={tagColor} text={scorePercentage} />

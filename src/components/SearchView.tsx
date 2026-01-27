@@ -1,13 +1,4 @@
-import {
-  Action,
-  ActionPanel,
-  Color,
-  getPreferenceValues,
-  Icon,
-  List,
-  showToast,
-  Toast,
-} from "@raycast/api";
+import { Action, ActionPanel, Color, getPreferenceValues, Icon, List, showToast, Toast } from "@raycast/api";
 import { useCachedState } from "@raycast/utils";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDependencyCheck } from "../hooks/useDependencyCheck";
@@ -164,11 +155,8 @@ export function SearchView({ searchMode }: SearchViewProps) {
         // Parse qmd:// URLs to extract collection and path, compute full filesystem path
         const enrichedResults = result.data.map((r) => {
           const parsed = parseQmdUrl(r.file);
-          const collectionBasePath = parsed?.collection
-            ? collectionPaths[parsed.collection]
-            : undefined;
-          const fullPath =
-            collectionBasePath && parsed?.path ? `${collectionBasePath}/${parsed.path}` : undefined;
+          const collectionBasePath = parsed?.collection ? collectionPaths[parsed.collection] : undefined;
+          const fullPath = collectionBasePath && parsed?.path ? `${collectionBasePath}/${parsed.path}` : undefined;
 
           return {
             ...r,
@@ -206,7 +194,7 @@ export function SearchView({ searchMode }: SearchViewProps) {
       showLineNumbers,
       showAllResults,
       addToHistory,
-    ]
+    ],
   );
 
   // Handle search text change
@@ -288,14 +276,12 @@ export function SearchView({ searchMode }: SearchViewProps) {
       case "vsearch":
         return {
           title: "No Semantic Matches",
-          description:
-            "Try different phrasing or Hybrid Search which combines keywords with semantic matching.",
+          description: "Try different phrasing or Hybrid Search which combines keywords with semantic matching.",
         };
       case "query":
         return {
           title: "No Results Found",
-          description:
-            "No matches found with hybrid search. Check your collections or try broader terms.",
+          description: "No matches found with hybrid search. Check your collections or try broader terms.",
         };
     }
   };
@@ -326,11 +312,7 @@ export function SearchView({ searchMode }: SearchViewProps) {
       isShowingDetail={results.length > 0 && showDetail}
       onSearchTextChange={onSearchTextChange}
       searchBarAccessory={
-        <List.Dropdown
-          onChange={setSelectedCollection}
-          tooltip="Filter by collection"
-          value={selectedCollection}
-        >
+        <List.Dropdown onChange={setSelectedCollection} tooltip="Filter by collection" value={selectedCollection}>
           <List.Dropdown.Item title="All Collections" value="all" />
           <List.Dropdown.Section title="Collections">
             {collections.map((col) => (

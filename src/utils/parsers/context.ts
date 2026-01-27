@@ -48,10 +48,7 @@ export function parseContextList(output: string): QmdContext[] {
     if (descMatch && currentCollection && currentPath) {
       // Build qmd:// URL preserving exact path format from qmd
       // Root "/" becomes just the collection, other paths are appended with a separator
-      const qmdPath =
-        currentPath === "/"
-          ? `qmd://${currentCollection}`
-          : `qmd://${currentCollection}/${currentPath}`;
+      const qmdPath = currentPath === "/" ? `qmd://${currentCollection}` : `qmd://${currentCollection}/${currentPath}`;
 
       contexts.push({
         path: qmdPath,

@@ -1,14 +1,4 @@
-import {
-  Action,
-  ActionPanel,
-  Alert,
-  confirmAlert,
-  Form,
-  Icon,
-  popToRoot,
-  showToast,
-  Toast,
-} from "@raycast/api";
+import { Action, ActionPanel, Alert, confirmAlert, Form, Icon, popToRoot, showToast, Toast } from "@raycast/api";
 import { useState } from "react";
 import { useDependencyCheck } from "./hooks/useDependencyCheck";
 import { getContexts, runQmdRaw } from "./utils/qmd";

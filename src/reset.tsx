@@ -6,8 +6,7 @@ export default async function Command() {
   // First confirmation
   const firstConfirm = await confirmAlert({
     title: "Reset QMD?",
-    message:
-      "This will delete all collections, contexts, and embeddings. The database file will be removed.",
+    message: "This will delete all collections, contexts, and embeddings. The database file will be removed.",
     primaryAction: {
       title: "Continue",
       style: Alert.ActionStyle.Destructive,
