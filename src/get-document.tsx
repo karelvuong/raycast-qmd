@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { List, ActionPanel, Action, Icon, Detail } from "@raycast/api";
 import { QmdGetResult } from "./types";
-import { runQmd } from "./utils/qmd";
+import { runQmdRaw } from "./utils/qmd";
+import { parseGetDocument } from "./utils/parsers";
 import { useDependencyCheck } from "./hooks/useDependencyCheck";
 
 export default function Command() {
@@ -24,21 +25,15 @@ export default function Command() {
     setError(null);
 
     // Auto-detect if it's a docid (starts with #) or path
-    const isDocId = input.trim().startsWith("#");
-    const query = isDocId ? input.trim() : input.trim();
+    const query = input.trim();
 
-    const getResult = await runQmd<QmdGetResult>(["get", query, "--full"]);
+    const getResult = await runQmdRaw(["get", query, "--full"]);
 
     if (getResult.success && getResult.data) {
-      if (getResult.data.suggestions && getResult.data.suggestions.length > 0) {
-        // No exact match, show suggestions
-        setSuggestions(getResult.data.suggestions);
-        setResult(null);
-      } else {
-        // Exact match found
-        setResult(getResult.data);
-        setSuggestions([]);
-      }
+      // Parse the plain text output using our parser
+      const documentResult = parseGetDocument(getResult.data, query);
+      setResult(documentResult);
+      setSuggestions([]);
     } else {
       setResult(null);
       setSuggestions([]);

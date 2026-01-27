@@ -13,7 +13,7 @@ import {
   Color,
 } from "@raycast/api";
 import { QmdCollection, QmdFileListItem } from "./types";
-import { runQmd, runQmdRaw, validateCollectionPath, expandPath, startBackgroundEmbed } from "./utils/qmd";
+import { runQmdRaw, getCollections, getCollectionFiles, validateCollectionPath, expandPath, startBackgroundEmbed } from "./utils/qmd";
 import { useDependencyCheck } from "./hooks/useDependencyCheck";
 
 export default function Command() {
@@ -25,14 +25,14 @@ export default function Command() {
     if (!isReady) return;
 
     setIsLoading(true);
-    const result = await runQmd<QmdCollection[]>(["collection", "list"]);
+    const result = await getCollections();
 
     if (result.success && result.data) {
       // Validate paths and sort alphabetically
       const validated = result.data
         .map((col) => ({
           ...col,
-          exists: validateCollectionPath(col.path),
+          exists: col.path ? validateCollectionPath(col.path) : true,
         }))
         .sort((a, b) => a.name.localeCompare(b.name));
       setCollections(validated);
@@ -309,7 +309,7 @@ function CollectionFiles({ collection }: CollectionFilesProps) {
 
   useEffect(() => {
     const loadFiles = async () => {
-      const result = await runQmd<QmdFileListItem[]>(["ls", collection.name]);
+      const result = await getCollectionFiles(collection.name);
       if (result.success && result.data) {
         setFiles(result.data);
       }
@@ -325,17 +325,16 @@ function CollectionFiles({ collection }: CollectionFilesProps) {
         const fullPath = `${expandPath(collection.path)}/${file.path}`;
         return (
           <List.Item
-            key={file.docid}
+            key={file.path}
             title={file.title || file.path}
             subtitle={file.path}
-            icon={file.embedded ? Icon.Document : { source: Icon.Document, tintColor: Color.SecondaryText }}
-            accessories={[{ text: file.embedded ? "embedded" : "not embedded" }, { text: `#${file.docid}` }]}
+            icon={Icon.Document}
+            accessories={[{ text: file.path.split("/").slice(0, -1).join("/") || "root" }]}
             actions={
               <ActionPanel>
                 <Action.Open title="Open File" target={fullPath} />
                 <Action.ShowInFinder path={fullPath} />
                 <Action.CopyToClipboard title="Copy Path" content={fullPath} />
-                <Action.CopyToClipboard title="Copy DocID" content={`#${file.docid}`} />
               </ActionPanel>
             }
           />

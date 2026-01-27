@@ -1,15 +1,19 @@
-import { execFile, exec, ChildProcess, spawn } from "child_process";
+import { exec, ChildProcess, spawn } from "child_process";
 import { promisify } from "util";
 import { existsSync } from "fs";
 import { homedir, platform } from "os";
 import { join } from "path";
-import { DependencyStatus, QmdResult, ScoreColor } from "../types";
+import { DependencyStatus, QmdResult, QmdCollection, QmdContext, QmdFileListItem, ScoreColor } from "../types";
+import { parseCollectionList, parseContextList, parseFileList } from "./parsers";
 
-const execFileAsync = promisify(execFile);
 const execAsync = promisify(exec);
 
 // Active embed process tracking
 let activeEmbedProcess: ChildProcess | null = null;
+
+// ============================================================================
+// Path & Environment Utilities
+// ============================================================================
 
 /**
  * Get environment with extended PATH for Raycast sandbox
@@ -54,6 +58,43 @@ function getQmdScript(): string {
 }
 
 /**
+ * Build a shell command that sets PATH and runs qmd
+ */
+function buildQmdShellCommand(args: string[]): string {
+  const bunBin = join(homedir(), ".bun", "bin");
+  // Escape single quotes in args for shell safety
+  const escapedArgs = args.map((arg) => `'${arg.replace(/'/g, "'\\''")}'`).join(" ");
+  return `export PATH="${bunBin}:$PATH" && qmd ${escapedArgs}`;
+}
+
+/**
+ * Get QMD database path
+ */
+export function getQmdDatabasePath(): string {
+  return join(homedir(), ".cache", "qmd", "index.sqlite");
+}
+
+/**
+ * Validate if a collection path exists
+ */
+export function validateCollectionPath(path: string): boolean {
+  // Expand ~ to home directory
+  const expandedPath = path.startsWith("~") ? join(homedir(), path.slice(1)) : path;
+  return existsSync(expandedPath);
+}
+
+/**
+ * Expand ~ in path to full home directory path
+ */
+export function expandPath(path: string): string {
+  return path.startsWith("~") ? join(homedir(), path.slice(1)) : path;
+}
+
+// ============================================================================
+// Dependency Checks
+// ============================================================================
+
+/**
  * Check if Bun is installed
  */
 export async function checkBunInstalled(): Promise<{ installed: boolean; version?: string }> {
@@ -66,7 +107,7 @@ export async function checkBunInstalled(): Promise<{ installed: boolean; version
 
   // fallback: Try running bun to check if it's in PATH
   try {
-    const { stdout } = await execFileAsync("bun", ["--version"], { timeout: 5000, env: getEnvWithPath() });
+    const { stdout } = await execAsync("bun --version", { timeout: 5000, env: getEnvWithPath() });
     return { installed: true, version: stdout.trim() };
   } catch {
     return { installed: false };
@@ -99,12 +140,12 @@ export async function checkSqliteInstalled(): Promise<boolean> {
     return true;
   }
   try {
-    await execFileAsync("brew", ["list", "sqlite"], { timeout: 5000, env: getEnvWithPath() });
+    await execAsync("brew list sqlite", { timeout: 5000, env: getEnvWithPath() });
     return true;
   } catch {
     // SQLite might be available system-wide even if not via Homebrew
     try {
-      await execFileAsync("sqlite3", ["--version"], { timeout: 5000, env: getEnvWithPath() });
+      await execAsync("sqlite3 --version", { timeout: 5000, env: getEnvWithPath() });
       return true;
     } catch {
       return false;
@@ -131,6 +172,10 @@ export async function checkAllDependencies(): Promise<DependencyStatus> {
   };
 }
 
+// ============================================================================
+// QMD Command Execution
+// ============================================================================
+
 /**
  * Execute a QMD command and parse JSON output
  */
@@ -142,11 +187,11 @@ export async function runQmd<T>(
 
   try {
     const fullArgs = includeJson ? [...args, "--json"] : args;
+    const command = buildQmdShellCommand(fullArgs);
 
-    const { stdout, stderr } = await execFileAsync(getBunExecutable(), [getQmdScript(), ...fullArgs], {
+    const { stdout, stderr } = await execAsync(command, {
       timeout,
       maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large outputs
-      env: getEnvWithPath(),
     });
 
     if (includeJson && stdout.trim()) {
@@ -180,10 +225,11 @@ export async function runQmdRaw(args: string[], options: { timeout?: number } = 
   const { timeout = 30000 } = options;
 
   try {
-    const { stdout, stderr } = await execFileAsync(getBunExecutable(), [getQmdScript(), ...args], {
+    const command = buildQmdShellCommand(args);
+
+    const { stdout, stderr } = await execAsync(command, {
       timeout,
       maxBuffer: 10 * 1024 * 1024,
-      env: getEnvWithPath(),
     });
 
     return { success: true, data: stdout, stderr: stderr || undefined };
@@ -196,6 +242,56 @@ export async function runQmdRaw(args: string[], options: { timeout?: number } = 
     };
   }
 }
+
+// ============================================================================
+// High-Level QMD Operations (using parsers)
+// ============================================================================
+
+/**
+ * Get list of collections (parses text output since --json not supported)
+ */
+export async function getCollections(): Promise<QmdResult<QmdCollection[]>> {
+  const result = await runQmdRaw(["collection", "list"]);
+
+  if (!result.success) {
+    return { success: false, error: result.error, stderr: result.stderr };
+  }
+
+  const collections = parseCollectionList(result.data || "");
+  return { success: true, data: collections };
+}
+
+/**
+ * Get list of contexts (parses text output since --json not supported)
+ */
+export async function getContexts(): Promise<QmdResult<QmdContext[]>> {
+  const result = await runQmdRaw(["context", "list"]);
+
+  if (!result.success) {
+    return { success: false, error: result.error, stderr: result.stderr };
+  }
+
+  const contexts = parseContextList(result.data || "");
+  return { success: true, data: contexts };
+}
+
+/**
+ * Get list of files in a collection (parses text output since --json not supported)
+ */
+export async function getCollectionFiles(collectionName: string): Promise<QmdResult<QmdFileListItem[]>> {
+  const result = await runQmdRaw(["ls", collectionName]);
+
+  if (!result.success) {
+    return { success: false, error: result.error, stderr: result.stderr };
+  }
+
+  const files = parseFileList(result.data || "");
+  return { success: true, data: files };
+}
+
+// ============================================================================
+// Background Embedding Process
+// ============================================================================
 
 /**
  * Start background embedding process
@@ -215,9 +311,9 @@ export function startBackgroundEmbed(
     args.push("-c", collectionName);
   }
 
-  activeEmbedProcess = spawn(getBunExecutable(), [getQmdScript(), ...args], {
+  const command = buildQmdShellCommand(args);
+  activeEmbedProcess = spawn("sh", ["-c", command], {
     stdio: ["ignore", "pipe", "pipe"],
-    env: getEnvWithPath(),
   });
 
   let stderr = "";
@@ -276,28 +372,9 @@ export function cancelActiveEmbed(): boolean {
   return false;
 }
 
-/**
- * Get QMD database path
- */
-export function getQmdDatabasePath(): string {
-  return join(homedir(), ".cache", "qmd", "index.sqlite");
-}
-
-/**
- * Validate if a collection path exists
- */
-export function validateCollectionPath(path: string): boolean {
-  // Expand ~ to home directory
-  const expandedPath = path.startsWith("~") ? join(homedir(), path.slice(1)) : path;
-  return existsSync(expandedPath);
-}
-
-/**
- * Expand ~ in path to full home directory path
- */
-export function expandPath(path: string): string {
-  return path.startsWith("~") ? join(homedir(), path.slice(1)) : path;
-}
+// ============================================================================
+// Score Utilities
+// ============================================================================
 
 /**
  * Get score color based on relevance
@@ -330,16 +407,19 @@ export function getScoreRaycastColor(score: number): string {
   }
 }
 
+// ============================================================================
+// Installation Utilities
+// ============================================================================
+
 /**
  * Install QMD via Bun
  */
 export async function installQmd(): Promise<QmdResult<string>> {
   try {
-    const { stdout, stderr } = await execFileAsync(
-      "bun",
-      ["install", "-g", "https://github.com/tobi/qmd"],
-      { timeout: 120000, env: getEnvWithPath() }, // 2 minute timeout for installation
-    );
+    const { stdout, stderr } = await execAsync("bun install -g https://github.com/tobi/qmd", {
+      timeout: 120000, // 2 minute timeout for installation
+      env: getEnvWithPath(),
+    });
     return { success: true, data: stdout, stderr };
   } catch (error) {
     const execError = error as { stderr?: string; message?: string };
@@ -360,7 +440,7 @@ export async function installSqlite(): Promise<QmdResult<string>> {
   }
 
   try {
-    const { stdout, stderr } = await execFileAsync("brew", ["install", "sqlite"], {
+    const { stdout, stderr } = await execAsync("brew install sqlite", {
       timeout: 300000, // 5 minute timeout
       env: getEnvWithPath(),
     });

@@ -10,9 +10,11 @@ import {
   Alert,
   Form,
   useNavigation,
+  launchCommand,
+  LaunchType,
 } from "@raycast/api";
 import { QmdContext } from "./types";
-import { runQmd, runQmdRaw } from "./utils/qmd";
+import { runQmdRaw, getContexts } from "./utils/qmd";
 import { useDependencyCheck } from "./hooks/useDependencyCheck";
 
 export default function Command() {
@@ -24,7 +26,7 @@ export default function Command() {
     if (!isReady) return;
 
     setIsLoading(true);
-    const result = await runQmd<QmdContext[]>(["context", "list"]);
+    const result = await getContexts();
 
     if (result.success && result.data) {
       setContexts(result.data);
@@ -54,17 +56,27 @@ export default function Command() {
     );
   }
 
+  const handleAddContext = async () => {
+    await launchCommand({ name: "add-context", type: LaunchType.UserInitiated });
+  };
+
   return (
     <List
       isLoading={isLoading}
       searchBarPlaceholder="Search contexts..."
       actions={
         <ActionPanel>
-          <Action.Push
+          <Action
             title="Add Context"
             icon={Icon.Plus}
             shortcut={{ modifiers: ["cmd"], key: "n" }}
-            target={<AddContextForm onAdd={loadContexts} />}
+            onAction={handleAddContext}
+          />
+          <Action
+            title="Refresh"
+            icon={Icon.ArrowClockwise}
+            shortcut={{ modifiers: ["cmd"], key: "r" }}
+            onAction={loadContexts}
           />
         </ActionPanel>
       }
@@ -76,14 +88,14 @@ export default function Command() {
           description="Add context descriptions to improve search relevance"
           actions={
             <ActionPanel>
-              <Action.Push title="Add Context" icon={Icon.Plus} target={<AddContextForm onAdd={loadContexts} />} />
+              <Action title="Add Context" icon={Icon.Plus} onAction={handleAddContext} />
             </ActionPanel>
           }
         />
       )}
 
-      {contexts.map((context) => (
-        <ContextItem key={context.path} context={context} onRefresh={loadContexts} />
+      {contexts.map((context, index) => (
+        <ContextItem key={`${context.path}-${index}`} context={context} onRefresh={loadContexts} />
       ))}
     </List>
   );
@@ -95,6 +107,10 @@ interface ContextItemProps {
 }
 
 function ContextItem({ context, onRefresh }: ContextItemProps) {
+  const handleAddContext = async () => {
+    await launchCommand({ name: "add-context", type: LaunchType.UserInitiated });
+  };
+
   const handleRemove = async () => {
     const confirmed = await confirmAlert({
       title: "Remove Context?",
@@ -148,6 +164,21 @@ function ContextItem({ context, onRefresh }: ContextItemProps) {
 
           <ActionPanel.Section>
             <Action
+              title="Add Context"
+              icon={Icon.Plus}
+              shortcut={{ modifiers: ["cmd"], key: "n" }}
+              onAction={handleAddContext}
+            />
+            <Action
+              title="Refresh"
+              icon={Icon.ArrowClockwise}
+              shortcut={{ modifiers: ["cmd"], key: "r" }}
+              onAction={onRefresh}
+            />
+          </ActionPanel.Section>
+
+          <ActionPanel.Section>
+            <Action
               title="Remove Context"
               icon={Icon.Trash}
               style={Action.Style.Destructive}
@@ -158,83 +189,6 @@ function ContextItem({ context, onRefresh }: ContextItemProps) {
         </ActionPanel>
       }
     />
-  );
-}
-
-interface AddContextFormProps {
-  onAdd: () => Promise<void>;
-}
-
-function AddContextForm({ onAdd }: AddContextFormProps) {
-  const { pop } = useNavigation();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [pathError, setPathError] = useState<string | undefined>();
-
-  const validatePath = (value: string | undefined) => {
-    if (!value || !value.trim()) {
-      setPathError("Path is required");
-      return false;
-    }
-    setPathError(undefined);
-    return true;
-  };
-
-  const handleSubmit = async (values: { path: string; description: string }) => {
-    if (!validatePath(values.path)) return;
-    if (!values.description.trim()) {
-      await showToast({
-        style: Toast.Style.Failure,
-        title: "Description is required",
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
-    const toast = await showToast({
-      style: Toast.Style.Animated,
-      title: "Adding context...",
-    });
-
-    const result = await runQmdRaw(["context", "add", values.path.trim(), values.description.trim()]);
-
-    if (result.success) {
-      toast.style = Toast.Style.Success;
-      toast.title = "Context added";
-      await onAdd();
-      pop();
-    } else {
-      toast.style = Toast.Style.Failure;
-      toast.title = "Failed to add context";
-      toast.message = result.error;
-    }
-
-    setIsSubmitting(false);
-  };
-
-  return (
-    <Form
-      isLoading={isSubmitting}
-      actions={
-        <ActionPanel>
-          <Action.SubmitForm title="Add Context" onSubmit={handleSubmit} icon={Icon.Plus} />
-        </ActionPanel>
-      }
-    >
-      <Form.TextField
-        id="path"
-        title="Path"
-        placeholder="qmd://collection-name or path/to/file.md"
-        info="Use qmd:// prefix for collection-level context, or a file path for document-level context"
-        error={pathError}
-        onChange={(value) => validatePath(value)}
-      />
-      <Form.TextArea
-        id="description"
-        title="Description"
-        placeholder="Description to help improve search relevance..."
-        info="This context will be used to enhance search results"
-      />
-    </Form>
   );
 }
 
@@ -289,12 +243,57 @@ function EditContextForm({ context, onEdit }: EditContextFormProps) {
     setIsSubmitting(false);
   };
 
+  const handleRemove = async () => {
+    const confirmed = await confirmAlert({
+      title: "Remove Context?",
+      message: `This will remove the context description for "${context.path}".`,
+      primaryAction: {
+        title: "Remove",
+        style: Alert.ActionStyle.Destructive,
+      },
+    });
+
+    if (!confirmed) return;
+
+    setIsSubmitting(true);
+    const toast = await showToast({
+      style: Toast.Style.Animated,
+      title: "Removing context...",
+    });
+
+    const result = await runQmdRaw(["context", "rm", context.path]);
+
+    if (result.success) {
+      toast.style = Toast.Style.Success;
+      toast.title = "Context removed";
+      await onEdit();
+      pop();
+    } else {
+      toast.style = Toast.Style.Failure;
+      toast.title = "Remove failed";
+      toast.message = result.error;
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <Form
       isLoading={isSubmitting}
       actions={
         <ActionPanel>
-          <Action.SubmitForm title="Update Context" onSubmit={handleSubmit} />
+          <ActionPanel.Section>
+            <Action.SubmitForm title="Update Context" onSubmit={handleSubmit} />
+          </ActionPanel.Section>
+
+          <ActionPanel.Section>
+            <Action
+              title="Remove Context"
+              icon={Icon.Trash}
+              style={Action.Style.Destructive}
+              shortcut={{ modifiers: ["cmd", "shift"], key: "backspace" }}
+              onAction={handleRemove}
+            />
+          </ActionPanel.Section>
         </ActionPanel>
       }
     >

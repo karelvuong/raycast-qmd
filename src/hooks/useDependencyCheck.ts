@@ -1,151 +1,134 @@
-import { useEffect, useState } from "react";
-import { Alert, confirmAlert, showToast, Toast, open } from "@raycast/api";
+import { useEffect, useRef } from "react";
+import { confirmAlert, showToast, Toast, open } from "@raycast/api";
+import { useCachedPromise } from "@raycast/utils";
 import { platform } from "os";
 import { DependencyStatus } from "../types";
 import { checkAllDependencies, installQmd, installSqlite } from "../utils/qmd";
+import { depsLogger } from "../utils/logger";
 
 interface UseDependencyCheckResult {
   isLoading: boolean;
   isReady: boolean;
   status: DependencyStatus | null;
-  recheckDependencies: () => Promise<void>;
+  recheckDependencies: () => void;
+}
+
+async function checkDependencies(): Promise<DependencyStatus> {
+  depsLogger.info("Checking all dependencies");
+  const status = await checkAllDependencies();
+  depsLogger.info("Dependency check complete", status);
+  return status;
 }
 
 export function useDependencyCheck(): UseDependencyCheckResult {
-  const [isLoading, setIsLoading] = useState(true);
-  const [isReady, setIsReady] = useState(false);
-  const [status, setStatus] = useState<DependencyStatus | null>(null);
+  const promptShownRef = useRef(false);
 
-  const checkAndPrompt = async () => {
-    setIsLoading(true);
-    const depStatus = await checkAllDependencies();
-    setStatus(depStatus);
+  const {
+    data: status,
+    isLoading,
+    revalidate,
+  } = useCachedPromise(checkDependencies, [], {
+    keepPreviousData: true,
+  });
 
-    // Check Bun first
-    if (!depStatus.bunInstalled) {
-      await confirmAlert({
-        title: "Bun Not Installed",
-        message: "QMD requires Bun to be installed. Would you like to visit the Bun installation page?",
-        primaryAction: {
-          title: "Open Installation Page",
-          onAction: () => {
-            open("https://bun.sh");
-          },
-        },
-        dismissAction: {
-          title: "Cancel",
-        },
-      });
-      setIsLoading(false);
-      setIsReady(false);
-      return;
-    }
+  const isReady = Boolean(
+    status?.bunInstalled && status?.qmdInstalled && status?.sqliteInstalled
+  );
 
-    // Check QMD
-    if (!depStatus.qmdInstalled) {
-      const shouldInstall = await confirmAlert({
-        title: "QMD Not Installed",
-        message: "Would you like to install QMD now?",
-        primaryAction: {
-          title: "Install QMD",
-          style: Alert.ActionStyle.Default,
-        },
-        dismissAction: {
-          title: "Cancel",
-        },
-      });
-
-      if (shouldInstall) {
-        const toast = await showToast({
-          style: Toast.Style.Animated,
-          title: "Installing QMD...",
-          message: "This may take a moment",
-        });
-
-        const result = await installQmd();
-
-        if (result.success) {
-          toast.style = Toast.Style.Success;
-          toast.title = "QMD Installed";
-          toast.message = "Ready to use";
-          // Recheck dependencies
-          const newStatus = await checkAllDependencies();
-          setStatus(newStatus);
-          if (newStatus.qmdInstalled && newStatus.sqliteInstalled) {
-            setIsReady(true);
-          }
-        } else {
-          toast.style = Toast.Style.Failure;
-          toast.title = "Installation Failed";
-          toast.message = result.error || "Unknown error";
-          setIsLoading(false);
-          setIsReady(false);
-          return;
-        }
-      } else {
-        setIsLoading(false);
-        setIsReady(false);
-        return;
-      }
-    }
-
-    // Check SQLite (macOS only)
-    if (!depStatus.sqliteInstalled && platform() === "darwin") {
-      const shouldInstall = await confirmAlert({
-        title: "SQLite Not Installed",
-        message: "QMD requires SQLite. Would you like to install it via Homebrew?",
-        primaryAction: {
-          title: "Install SQLite",
-          style: Alert.ActionStyle.Default,
-        },
-        dismissAction: {
-          title: "Cancel",
-        },
-      });
-
-      if (shouldInstall) {
-        const toast = await showToast({
-          style: Toast.Style.Animated,
-          title: "Installing SQLite...",
-          message: "This may take a moment",
-        });
-
-        const result = await installSqlite();
-
-        if (result.success) {
-          toast.style = Toast.Style.Success;
-          toast.title = "SQLite Installed";
-          toast.message = "Ready to use";
-          const newStatus = await checkAllDependencies();
-          setStatus(newStatus);
-          setIsReady(newStatus.bunInstalled && newStatus.qmdInstalled && newStatus.sqliteInstalled);
-        } else {
-          toast.style = Toast.Style.Failure;
-          toast.title = "Installation Failed";
-          toast.message = result.error || "Unknown error";
-          setIsLoading(false);
-          setIsReady(false);
-          return;
-        }
-      } else {
-        setIsLoading(false);
-        setIsReady(false);
-        return;
-      }
-    }
-
-    setIsReady(depStatus.bunInstalled && depStatus.qmdInstalled && depStatus.sqliteInstalled);
-    setIsLoading(false);
-  };
-
+  // Show prompts for missing deps (only once per session)
   useEffect(() => {
-    checkAndPrompt();
-  }, []);
+    if (isLoading || !status || promptShownRef.current) return;
+    if (isReady) return; // All deps installed, no prompts needed
+
+    promptShownRef.current = true;
+
+    const promptForMissing = async () => {
+      if (!status.bunInstalled) {
+        depsLogger.warn("Bun not installed");
+        await promptBunInstall();
+        return;
+      }
+      if (!status.qmdInstalled) {
+        depsLogger.warn("QMD not installed");
+        await promptQmdInstall(revalidate);
+        return;
+      }
+      if (!status.sqliteInstalled && platform() === "darwin") {
+        depsLogger.warn("SQLite not installed");
+        await promptSqliteInstall(revalidate);
+      }
+    };
+
+    promptForMissing();
+  }, [status, isLoading, isReady, revalidate]);
 
   return {
-    isLoading,
+    isLoading: isLoading && !status, // Only loading if no cached data
     isReady,
-    status,
-    recheckDependencies: checkAndPrompt,
+    status: status ?? null,
+    recheckDependencies: revalidate,
   };
+}
+
+async function promptBunInstall() {
+  await confirmAlert({
+    title: "Bun Not Installed",
+    message: "QMD requires Bun. Would you like to visit the installation page?",
+    primaryAction: {
+      title: "Open Installation Page",
+      onAction: () => open("https://bun.sh"),
+    },
+  });
+}
+
+async function promptQmdInstall(revalidate: () => void) {
+  const shouldInstall = await confirmAlert({
+    title: "QMD Not Installed",
+    message: "Would you like to install QMD now?",
+    primaryAction: { title: "Install QMD" },
+  });
+
+  if (shouldInstall) {
+    const toast = await showToast({
+      style: Toast.Style.Animated,
+      title: "Installing QMD...",
+    });
+
+    const result = await installQmd();
+    if (result.success) {
+      toast.style = Toast.Style.Success;
+      toast.title = "QMD Installed";
+      revalidate();
+    } else {
+      toast.style = Toast.Style.Failure;
+      toast.title = "Installation Failed";
+      toast.message = result.error;
+    }
+  }
+}
+
+async function promptSqliteInstall(revalidate: () => void) {
+  const shouldInstall = await confirmAlert({
+    title: "SQLite Not Installed",
+    message: "QMD requires SQLite. Install via Homebrew?",
+    primaryAction: { title: "Install SQLite" },
+  });
+
+  if (shouldInstall) {
+    const toast = await showToast({
+      style: Toast.Style.Animated,
+      title: "Installing SQLite...",
+    });
+
+    const result = await installSqlite();
+    if (result.success) {
+      toast.style = Toast.Style.Success;
+      toast.title = "SQLite Installed";
+      revalidate();
+    } else {
+      toast.style = Toast.Style.Failure;
+      toast.title = "Installation Failed";
+      toast.message = result.error;
+    }
+  }
 }

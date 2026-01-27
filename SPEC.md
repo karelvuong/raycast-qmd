@@ -81,13 +81,18 @@ All commands are top-level Raycast commands (not nested submenus).
 
 | Command | Description |
 |---------|-------------|
-| **Manage Contexts** | List, add, edit, remove context descriptions |
+| **Add Context** | Add a new context description |
+| **Manage Contexts** | List, edit, remove context descriptions |
 
-**Context Management:**
+**Add Context Form:**
+- Path field (qmd://collection or qmd://collection/path/to/file.md)
+- Description field
+
+**Manage Contexts View:**
 - List all contexts with their qmd:// paths and descriptions
-- Add new context (path + description)
 - Edit existing context descriptions
 - Remove context
+- "Add Context" action always visible (Cmd+N)
 
 ### Utility Commands
 
@@ -216,9 +221,317 @@ Core actions only:
 | 3 | Query | view | Hybrid search with reranking |
 | 4 | Add Collection | view | Create new collection |
 | 5 | Manage Collections | view | List and manage collections |
-| 6 | Manage Contexts | view | List and manage context descriptions |
-| 7 | Get Document | view | Retrieve by path or docid |
-| 8 | Status | view | Index health dashboard |
-| 9 | Generate Embeddings | no-view | Background embedding generation |
-| 10 | Cleanup | no-view | Remove orphaned data |
-| 11 | Reset QMD | no-view | Wipe database (double confirm) |
+| 6 | Add Context | view | Add context description |
+| 7 | Manage Contexts | view | List and manage context descriptions |
+| 8 | Get Document | view | Retrieve by path or docid |
+| 9 | Status | view | Index health dashboard |
+| 10 | Generate Embeddings | no-view | Background embedding generation |
+| 11 | Cleanup | no-view | Remove orphaned data |
+| 12 | Reset QMD | no-view | Wipe database (double confirm) |
+
+---
+
+## Implementation Status
+
+### Completed
+
+#### Phase 1: Foundation & Utilities
+
+**Types** (`src/types.ts`)
+- [x] `QmdSearchResult` - search result with path, docid, title, score, snippet, collection
+- [x] `QmdCollection` - collection with name, path, mask, documentCount, embeddedCount
+- [x] `QmdContext` - context with path and description
+- [x] `QmdStatus` - status info (simplified to raw text due to CLI limitations)
+- [x] `QmdFileListItem` - file with path, docid, title, embedded flag
+- [x] `QmdGetResult` - get result with path, docid, content, title, collection, suggestions
+- [x] `DependencyStatus` - bun/qmd/sqlite installation status
+- [x] `SearchMode` - "search" | "vsearch" | "query"
+- [x] `SearchHistoryItem` - query, mode, timestamp
+- [x] `ExtensionPreferences` - defaultResultCount, defaultMinScore, defaultSearchMode
+- [x] `ScoreColor` - "green" | "yellow" | "red"
+- [x] `QmdResult<T>` - generic result wrapper with success, data, error, stderr
+
+**Logger** (`src/utils/logger.ts`)
+- [x] `logger` - Main logger instance with `[QMD]` prefix
+- [x] `depsLogger` - Child logger for dependency operations `[Deps]`
+- [x] `searchLogger` - Child logger for search operations `[Search]`
+- [x] `collectionsLogger` - Child logger for collection operations `[Collections]`
+- [x] `contextsLogger` - Child logger for context operations `[Contexts]`
+- [x] `embedLogger` - Child logger for embedding operations `[Embed]`
+
+**QMD CLI Utilities** (`src/utils/qmd.ts`)
+- [x] `getEnvWithPath()` - extends PATH for Raycast sandbox
+- [x] `getBunExecutable()` - locates bun at `~/.bun/bin/bun`
+- [x] `getQmdScript()` - locates qmd at `~/.bun/bin/qmd`
+- [x] `buildQmdShellCommand()` - builds shell command with PATH export
+- [x] `checkBunInstalled()` - verifies Bun installation
+- [x] `checkQmdInstalled()` - verifies QMD installation
+- [x] `checkSqliteInstalled()` - verifies SQLite (macOS via Homebrew)
+- [x] `checkAllDependencies()` - combined dependency check
+- [x] `runQmd<T>()` - execute QMD with JSON parsing
+- [x] `runQmdRaw()` - execute QMD without JSON parsing
+- [x] `getCollections()` - fetch and parse collection list
+- [x] `getContexts()` - fetch and parse context list
+- [x] `getCollectionFiles()` - fetch and parse file list
+- [x] `startBackgroundEmbed()` - spawn background embedding process
+- [x] `isEmbedRunning()` - check if embedding active
+- [x] `cancelActiveEmbed()` - kill running embed process
+- [x] `getQmdDatabasePath()` - returns `~/.cache/qmd/index.sqlite`
+- [x] `validateCollectionPath()` - check if directory exists
+- [x] `expandPath()` - expand ~ to home directory
+- [x] `getScoreColor()` - score to color mapping
+- [x] `formatScorePercentage()` - score to percentage string
+- [x] `getScoreRaycastColor()` - score to hex color
+- [x] `installQmd()` - install QMD via bun
+- [x] `installSqlite()` - install SQLite via Homebrew
+
+**Text Parsers** (`src/utils/parsers/`)
+- [x] `parseCollectionList()` - parses `qmd collection list` text output
+- [x] `parseContextList()` - parses `qmd context list` text output
+- [x] `parseFileList()` - parses `qmd ls` text output
+- [x] `index.ts` - barrel export for all parsers
+
+**Hooks**
+- [x] `useDependencyCheck` (`src/hooks/useDependencyCheck.ts`)
+  - Uses `useCachedPromise` for instant command loads (stale-while-revalidate)
+  - Cached result persists between command runs
+  - Shows prompts only once per session via `useRef`
+  - Structured logging with `depsLogger`
+  - Returns `{ isLoading, isReady, status, recheckDependencies }`
+- [x] `useSearchHistory` (`src/hooks/useSearchHistory.ts`)
+  - Manages last 10 searches in LocalStorage
+  - `history`, `addToHistory()`, `clearHistory()`
+- [x] `useIndexingState` (`src/hooks/useIndexingState.ts`)
+  - Polls `isEmbedRunning()` every second
+  - Returns `{ isIndexing }`
+
+#### Phase 2: Search Commands
+
+**Components**
+- [x] `SearchView` (`src/components/SearchView.tsx`)
+  - Shared search component accepting `searchMode` prop
+  - 400ms debounced search
+  - Collection filter dropdown
+  - Recent searches when empty
+  - Indexing warning banner
+  - Empty state handling
+- [x] `SearchResultItem` (`src/components/SearchResultItem.tsx`)
+  - Score percentage with color coding
+  - Detail panel with markdown preview
+  - Actions: Open, Copy Path, Copy Content, Show in Finder, Copy DocID
+
+**Commands**
+- [x] `search.tsx` - BM25 keyword search
+- [x] `vsearch.tsx` - Semantic vector search
+- [x] `query.tsx` - Hybrid search with reranking
+
+#### Phase 3: Collection Commands
+
+- [x] `add-collection.tsx`
+  - Name, path, context, glob mask fields
+  - Path validation
+  - Optional "Generate Embeddings" after creation
+- [x] `manage-collections.tsx`
+  - List all collections sorted alphabetically
+  - Path validation with warning icons
+  - Actions: List Files, Show in Finder, Rename, Re-Embed, Update Index, Pull & Update, Remove
+
+#### Phase 4: Context Commands
+
+- [x] `add-context.tsx`
+  - Path and description form fields
+  - Dependency check on load
+  - Success navigates back to root
+- [x] `manage-contexts.tsx`
+  - List all contexts with paths and descriptions
+  - Edit context (via remove + add since QMD has no edit command)
+  - Remove context with confirmation
+  - "Add Context" action always visible (Cmd+N) even when item selected
+  - "Refresh" action (Cmd+R)
+
+#### Phase 5: Utility Commands
+
+- [x] `get-document.tsx`
+  - Smart input detection (path vs #docid)
+  - Fuzzy suggestions display
+  - Document detail view with markdown
+- [x] `status.tsx`
+  - Displays raw QMD status output (JSON not supported)
+  - Refresh action
+- [x] `generate-embeddings.tsx`
+  - Background process with toast progress
+  - Cancel functionality
+  - "Already running" detection
+- [x] `cleanup.tsx`
+  - Runs `qmd cleanup`
+  - Success/failure toast
+- [x] `reset.tsx`
+  - Double confirmation alerts
+  - Deletes database file
+
+#### Phase 6: Package Configuration
+
+- [x] All 12 commands registered in `package.json`
+- [x] Preferences configured (defaultResultCount, defaultMinScore, defaultSearchMode)
+- [x] Extension metadata (name, description, icon, author, license)
+
+---
+
+### Technical Discoveries & Deviations
+
+#### QMD JSON Support Limitations
+
+**Discovery:** QMD's `--json` flag only works for search commands, not for:
+- `qmd status --json` → returns text
+- `qmd collection list --json` → returns text
+- `qmd context list --json` → returns text
+- `qmd ls <collection> --json` → returns text
+
+**Solution:** Created text parsers in `src/utils/parsers/` to parse the text output:
+- `parseCollectionList()` - parses collection info from text
+- `parseContextList()` - parses context info from text
+- `parseFileList()` - parses file list from text
+
+#### Raycast Sandbox PATH Issues
+
+**Discovery:** Raycast doesn't inherit the user's shell PATH, so `bun` and `qmd` commands fail even when installed.
+
+**Solution:**
+1. `getEnvWithPath()` adds common paths: `~/.bun/bin`, `~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`
+2. `buildQmdShellCommand()` builds shell commands with explicit PATH export:
+   ```bash
+   export PATH="~/.bun/bin:$PATH" && qmd [args]
+   ```
+
+#### QMD Shell Script Execution
+
+**Discovery:** QMD is a shell script with shebang `#!/usr/bin/env bun`, not a JavaScript file. Running `bun ~/.bun/bin/qmd` fails with syntax errors.
+
+**Solution:** Use `exec()` with shell mode instead of `execFile()`. The shell interprets the shebang and runs the script correctly.
+
+#### File List DocID Unavailable
+
+**Discovery:** The `qmd ls` text output doesn't include document IDs.
+
+**Solution:** Files use `path` as the unique key instead of `docid`. Removed "Copy DocID" action from file list view.
+
+---
+
+### Outstanding Work
+
+#### High Priority
+
+1. **Manual Testing**
+   - [ ] Test all 12 commands end-to-end
+   - [ ] Test dependency checks (Bun missing, QMD missing, SQLite missing)
+   - [ ] Test search with various queries across all modes
+   - [ ] Test collection add/rename/remove workflows
+   - [ ] Test context add/edit/remove workflows
+   - [ ] Test embedding generation (start, progress, cancel)
+   - [ ] Test edge cases (empty collections, no results, stale files)
+
+2. **Bug Fixes (if found during testing)**
+   - [ ] Address any issues discovered during manual testing
+
+3. **Status Command Enhancement**
+   - [ ] Parse `qmd status` text output into structured display
+   - [ ] Show collections, document counts, embedding status in organized format
+
+#### Medium Priority
+
+4. **Search Result Improvements**
+   - [ ] Verify snippet highlighting works correctly
+   - [ ] Test Quick Look markdown preview
+   - [ ] Verify "jump to line" in editor works
+
+5. **Collection Path Display**
+   - [ ] Collections currently show empty path (parser limitation)
+   - [ ] Consider running `qmd collection show <name>` to get full path
+
+#### Low Priority
+
+6. **Git Info for Pull & Update**
+   - [ ] Spec mentions showing git branch and uncommitted changes
+   - [ ] Currently just runs the command without git info display
+
+7. **Windows Testing**
+   - [ ] Test on Windows (if applicable)
+   - [ ] Document Windows-specific SQLite setup
+
+---
+
+### Publishing Checklist
+
+#### README Documentation
+
+- [ ] Installation prerequisites
+  - [ ] Bun installation instructions
+  - [ ] SQLite installation (macOS: `brew install sqlite`)
+  - [ ] Windows-specific instructions
+- [ ] Quick start guide
+- [ ] Command reference for all 12 commands
+- [ ] Usage examples
+- [ ] Preferences documentation
+- [ ] Troubleshooting section
+- [ ] Credits (link to tobi/qmd)
+
+#### Screenshots
+
+- [ ] Search results with highlighted snippets
+- [ ] Add Collection form
+- [ ] Manage Collections list
+- [ ] Status dashboard
+- [ ] Context management
+
+#### Store Submission
+
+- [ ] Verify MIT License file exists
+- [ ] Verify extension icon (`extension-icon.png`)
+- [ ] Run `ray build` for production build
+- [ ] Submit to Raycast Store
+
+---
+
+### File Structure
+
+```
+src/
+├── types.ts                    # TypeScript interfaces
+├── utils/
+│   ├── qmd.ts                  # QMD CLI utilities
+│   ├── logger.ts               # Structured logging with child loggers
+│   └── parsers/
+│       ├── index.ts            # Barrel export
+│       ├── collection.ts       # parseCollectionList()
+│       ├── context.ts          # parseContextList()
+│       └── file-list.ts        # parseFileList()
+├── hooks/
+│   ├── useDependencyCheck.ts   # Dependency validation
+│   ├── useSearchHistory.ts     # Search history in LocalStorage
+│   └── useIndexingState.ts     # Embedding process tracking
+├── components/
+│   ├── SearchView.tsx          # Shared search UI
+│   └── SearchResultItem.tsx    # Individual search result
+├── search.tsx                  # BM25 search command
+├── vsearch.tsx                 # Semantic search command
+├── query.tsx                   # Hybrid search command
+├── add-collection.tsx          # Add collection form
+├── manage-collections.tsx      # Collection management
+├── add-context.tsx             # Add context form
+├── manage-contexts.tsx         # Context management
+├── get-document.tsx            # Document retrieval
+├── status.tsx                  # Status dashboard
+├── generate-embeddings.tsx     # Background embedding
+├── cleanup.tsx                 # Cleanup command
+└── reset.tsx                   # Reset command
+```
+
+---
+
+### Next Steps
+
+1. **Immediate:** Manual testing of all commands
+2. **Then:** Fix any bugs discovered
+3. **Then:** Write comprehensive README
+4. **Then:** Capture screenshots
+5. **Finally:** Submit to Raycast Store

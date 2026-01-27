@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { List, showToast, Toast, Icon, getPreferenceValues, Color, Action, ActionPanel } from "@raycast/api";
 import { useDebouncedCallback } from "use-debounce";
 import { SearchMode, QmdSearchResult, QmdCollection, ExtensionPreferences } from "../types";
-import { runQmd, validateCollectionPath } from "../utils/qmd";
+import { runQmd, getCollections, validateCollectionPath } from "../utils/qmd";
 import { useDependencyCheck } from "../hooks/useDependencyCheck";
 import { useSearchHistory } from "../hooks/useSearchHistory";
 import { useIndexingState } from "../hooks/useIndexingState";
@@ -33,19 +33,21 @@ export function SearchView({ searchMode }: SearchViewProps) {
 
     const loadCollections = async () => {
       setCollectionsLoading(true);
-      const result = await runQmd<QmdCollection[]>(["collection", "list"]);
+      const result = await getCollections();
       if (result.success && result.data) {
         // Validate paths and store mapping
         const validated = result.data.map((col) => ({
           ...col,
-          exists: validateCollectionPath(col.path),
+          exists: col.path ? validateCollectionPath(col.path) : true,
         }));
         setCollections(validated);
 
         // Create path mapping for full path resolution
         const paths: Record<string, string> = {};
         validated.forEach((col) => {
-          paths[col.name] = col.path;
+          if (col.path) {
+            paths[col.name] = col.path;
+          }
         });
         setCollectionPaths(paths);
       }
