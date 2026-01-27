@@ -13,8 +13,9 @@ import {
   Color,
 } from "@raycast/api";
 import { QmdCollection, QmdFileListItem } from "./types";
-import { runQmdRaw, getCollections, getCollectionFiles, validateCollectionPath, expandPath, startBackgroundEmbed } from "./utils/qmd";
+import { runQmdRaw, getCollections, getCollectionFiles, validateCollectionPath, expandPath, runEmbed } from "./utils/qmd";
 import { useDependencyCheck } from "./hooks/useDependencyCheck";
+import { collectionsLogger } from "./utils/logger";
 
 export default function Command() {
   const { isLoading: isDepsLoading, isReady } = useDependencyCheck();
@@ -24,6 +25,7 @@ export default function Command() {
   const loadCollections = async () => {
     if (!isReady) return;
 
+    collectionsLogger.info("Loading collections");
     setIsLoading(true);
     const result = await getCollections();
 
@@ -36,7 +38,9 @@ export default function Command() {
         }))
         .sort((a, b) => a.name.localeCompare(b.name));
       setCollections(validated);
+      collectionsLogger.info("Collections loaded", { count: validated.length });
     } else {
+      collectionsLogger.warn("Failed to load collections", { error: result.error });
       setCollections([]);
     }
     setIsLoading(false);
@@ -102,6 +106,7 @@ function CollectionItem({ collection, onRefresh }: CollectionItemProps) {
   const handleRename = async (newName: string) => {
     if (!newName.trim() || newName === collection.name) return;
 
+    collectionsLogger.info("Renaming collection", { from: collection.name, to: newName });
     const toast = await showToast({
       style: Toast.Style.Animated,
       title: "Renaming collection...",
@@ -110,10 +115,12 @@ function CollectionItem({ collection, onRefresh }: CollectionItemProps) {
     const result = await runQmdRaw(["collection", "rename", collection.name, newName.trim()]);
 
     if (result.success) {
+      collectionsLogger.info("Collection renamed", { name: newName });
       toast.style = Toast.Style.Success;
       toast.title = "Collection renamed";
       await onRefresh();
     } else {
+      collectionsLogger.error("Rename failed", { error: result.error });
       toast.style = Toast.Style.Failure;
       toast.title = "Rename failed";
       toast.message = result.error;
@@ -132,6 +139,7 @@ function CollectionItem({ collection, onRefresh }: CollectionItemProps) {
 
     if (!confirmed) return;
 
+    collectionsLogger.info("Removing collection", { name: collection.name });
     const toast = await showToast({
       style: Toast.Style.Animated,
       title: "Removing collection...",
@@ -140,10 +148,12 @@ function CollectionItem({ collection, onRefresh }: CollectionItemProps) {
     const result = await runQmdRaw(["collection", "remove", collection.name]);
 
     if (result.success) {
+      collectionsLogger.info("Collection removed", { name: collection.name });
       toast.style = Toast.Style.Success;
       toast.title = "Collection removed";
       await onRefresh();
     } else {
+      collectionsLogger.error("Remove failed", { error: result.error });
       toast.style = Toast.Style.Failure;
       toast.title = "Remove failed";
       toast.message = result.error;
@@ -151,33 +161,38 @@ function CollectionItem({ collection, onRefresh }: CollectionItemProps) {
   };
 
   const handleReembed = async () => {
+    collectionsLogger.info("Starting re-embed", { collection: collection.name });
     const toast = await showToast({
       style: Toast.Style.Animated,
       title: "Generating embeddings...",
       message: collection.name,
     });
 
-    startBackgroundEmbed(
-      (message) => {
-        toast.message = message;
-      },
-      (success, error) => {
-        if (success) {
-          toast.style = Toast.Style.Success;
-          toast.title = "Embeddings generated";
-          toast.message = collection.name;
-        } else {
-          toast.style = Toast.Style.Failure;
-          toast.title = "Embedding failed";
-          toast.message = error;
-        }
-        onRefresh();
-      },
-      collection.name,
-    );
+    const result = await runEmbed(collection.name);
+
+    if (result.success) {
+      const output = result.data || "";
+      collectionsLogger.info("Re-embed complete", { collection: collection.name });
+      toast.style = Toast.Style.Success;
+
+      if (output.includes("already have embeddings")) {
+        toast.title = "✓ Embeddings up-to-date";
+      } else {
+        toast.title = "✓ Embeddings generated";
+      }
+      toast.message = collection.name;
+    } else {
+      collectionsLogger.error("Re-embed failed", { collection: collection.name, error: result.error });
+      toast.style = Toast.Style.Failure;
+      toast.title = "Embedding failed";
+      toast.message = result.error;
+    }
+
+    onRefresh();
   };
 
   const handleUpdate = async (pullFirst: boolean) => {
+    collectionsLogger.info("Updating collection", { collection: collection.name, pullFirst });
     const toast = await showToast({
       style: Toast.Style.Animated,
       title: pullFirst ? "Pulling and updating..." : "Updating index...",
@@ -192,11 +207,13 @@ function CollectionItem({ collection, onRefresh }: CollectionItemProps) {
     const result = await runQmdRaw(args, { timeout: 60000 });
 
     if (result.success) {
+      collectionsLogger.info("Update complete", { collection: collection.name });
       toast.style = Toast.Style.Success;
       toast.title = "Index updated";
       toast.message = collection.name;
       await onRefresh();
     } else {
+      collectionsLogger.error("Update failed", { collection: collection.name, error: result.error });
       toast.style = Toast.Style.Failure;
       toast.title = "Update failed";
       toast.message = result.error;
