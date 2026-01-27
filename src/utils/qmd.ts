@@ -418,6 +418,57 @@ export async function runEmbed(collectionName?: string): Promise<QmdResult<strin
 }
 
 /**
+ * Result from updating collections
+ */
+export interface UpdateResult {
+  success: boolean;
+  output: string;
+  pendingEmbeddings: number;
+  error?: string;
+}
+
+/**
+ * Run update for all collections or a specific collection
+ * Parses output to detect if embeddings are needed
+ */
+export async function runUpdate(
+  collectionName?: string,
+  options: { pullFirst?: boolean } = {}
+): Promise<UpdateResult> {
+  const args = ["update"];
+  if (collectionName) {
+    args.push("-c", collectionName);
+  }
+  if (options.pullFirst) {
+    args.push("--pull");
+  }
+
+  const result = await runQmdRaw(args, { timeout: 120_000 }); // 2 minute timeout
+
+  if (!result.success) {
+    return {
+      success: false,
+      output: "",
+      pendingEmbeddings: 0,
+      error: result.error,
+    };
+  }
+
+  const output = result.data || "";
+
+  // Parse the output to find pending embeddings count
+  // Format: "Run 'qmd embed' to update embeddings (4 unique hashes need vectors)"
+  const pendingMatch = output.match(/\((\d+) unique hashes? need vectors?\)/);
+  const pendingEmbeddings = pendingMatch ? Number.parseInt(pendingMatch[1], 10) : 0;
+
+  return {
+    success: true,
+    output,
+    pendingEmbeddings,
+  };
+}
+
+/**
  * Check if embedding is currently running
  * Note: This cannot detect embedding running in other command contexts
  */

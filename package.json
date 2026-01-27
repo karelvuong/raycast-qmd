@@ -3,11 +3,10 @@
   "name": "qmd",
   "title": "QMD",
   "description": "Search your markdown files with QMD (Quick Markdown Search) - fast BM25 keyword search, semantic vector search, and hybrid search with LLM reranking",
-  "icon": "extension-icon.png",
-  "author": "vuongkarel",
-  "platforms": [
-    "macOS",
-    "Windows"
+  "icon": "icon.png",
+  "author": "karelvuong",
+  "contributors": [
+    "karelvuong"
   ],
   "categories": [
     "Developer Tools",
@@ -50,6 +49,13 @@
       "subtitle": "QMD",
       "description": "View, edit, rename, and remove collections",
       "mode": "view"
+    },
+    {
+      "name": "update-collections",
+      "title": "Update Collections",
+      "subtitle": "QMD",
+      "description": "Scan all collections for new or changed files and update the index",
+      "mode": "no-view"
     },
     {
       "name": "add-context",
@@ -158,5 +164,8 @@
     "prepublishOnly": "echo \"\\n\\nIt seems like you are trying to publish the Raycast extension to npm.\\n\\nIf you did intend to publish it to npm, remove the \\`prepublishOnly\\` script and rerun \\`npm publish\\` again.\\nIf you wanted to publish it to the Raycast Store instead, use \\`npm run publish\\` instead.\\n\\n\" && exit 1",
     "publish": "bunx @raycast/api@latest publish",
     "typecheck": "tsc --noEmit"
-  }
+  },
+  "platforms": [
+    "macOS"
+  ]
 }

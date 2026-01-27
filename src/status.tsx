@@ -23,6 +23,7 @@ import {
   getQmdDatabasePath,
   runEmbed,
   runQmdRaw,
+  runUpdate,
 } from "./utils/qmd";
 
 const statusLogger = logger.child("[Status]");
@@ -317,18 +318,26 @@ function CollectionDetail({ collectionName, onRefresh }: CollectionDetailProps) 
       message: collectionName,
     });
 
-    const args = ["update", "-c", collectionName];
-    if (pullFirst) {
-      args.push("--pull");
-    }
-
-    const result = await runQmdRaw(args, { timeout: 60_000 });
+    const result = await runUpdate(collectionName, { pullFirst });
 
     if (result.success) {
-      collectionsLogger.info("Update complete", { collection: collectionName });
+      collectionsLogger.info("Update complete", {
+        collection: collectionName,
+        pendingEmbeddings: result.pendingEmbeddings,
+      });
       toast.style = Toast.Style.Success;
       toast.title = "Index updated";
-      toast.message = collectionName;
+
+      if (result.pendingEmbeddings > 0) {
+        toast.message = `${result.pendingEmbeddings} document${result.pendingEmbeddings === 1 ? "" : "s"} need${result.pendingEmbeddings === 1 ? "s" : ""} embeddings`;
+        toast.primaryAction = {
+          title: "Generate Embeddings",
+          onAction: () => handleReembed(),
+        };
+      } else {
+        toast.message = collectionName;
+      }
+
       onRefresh();
     } else {
       collectionsLogger.error("Update failed", {
