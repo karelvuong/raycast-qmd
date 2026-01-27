@@ -440,14 +440,20 @@ Core actions only:
 
 #### Medium Priority
 
-4. **Search Result Improvements**
+4. **Search Result Improvements** ✅
+   - [x] Add Open in Editor as primary action (Enter)
+   - [x] Add Copy Path action (Cmd+C)
+   - [x] Add Copy Content action (Cmd+Shift+C)
+   - [x] Add Reveal in Finder action
+   - [x] Add Copy DocID action (Cmd+Option+C)
+   - [x] Add stale file indicator (warning icon if file not found)
    - [ ] Verify snippet highlighting works correctly
    - [ ] Test Quick Look markdown preview
    - [ ] Verify "jump to line" in editor works
 
-5. **Collection Path Display**
-   - [ ] Collections currently show empty path (parser limitation)
-   - [ ] Consider running `qmd collection show <name>` to get full path
+5. **Collection Path Display** ✅
+   - [x] Fixed: Now reads paths from `~/.config/qmd/index.yml` config file
+   - [x] Collections display full filesystem path in Manage Collections view
 
 #### Low Priority
 
@@ -463,18 +469,18 @@ Core actions only:
 
 ### Publishing Checklist
 
-#### README Documentation
+#### README Documentation ✅
 
-- [ ] Installation prerequisites
-  - [ ] Bun installation instructions
-  - [ ] SQLite installation (macOS: `brew install sqlite`)
-  - [ ] Windows-specific instructions
-- [ ] Quick start guide
-- [ ] Command reference for all 12 commands
-- [ ] Usage examples
-- [ ] Preferences documentation
-- [ ] Troubleshooting section
-- [ ] Credits (link to tobi/qmd)
+- [x] Installation prerequisites
+  - [x] Bun installation instructions
+  - [x] SQLite installation (macOS: `brew install sqlite`)
+  - [x] Windows-specific instructions
+- [x] Quick start guide
+- [x] Command reference for all 12 commands
+- [x] Usage examples
+- [x] Preferences documentation
+- [x] Troubleshooting section
+- [x] Credits (link to tobi/qmd)
 
 #### Screenshots
 
@@ -486,9 +492,9 @@ Core actions only:
 
 #### Store Submission
 
-- [ ] Verify MIT License file exists
-- [ ] Verify extension icon (`extension-icon.png`)
-- [ ] Run `ray build` for production build
+- [x] Verify MIT License file exists
+- [x] Verify extension icon (`extension-icon.png`)
+- [x] Run `ray build` for production build
 - [ ] Submit to Raycast Store
 
 ---
@@ -514,7 +520,7 @@ src/
 ├── components/
 │   ├── SearchView.tsx          # Shared search UI
 │   └── SearchResultItem.tsx    # Individual search result
-├── search.tsx                  # BM25 search command
+├── keyword-search.tsx          # BM25 keyword search command
 ├── vsearch.tsx                 # Semantic search command
 ├── query.tsx                   # Hybrid search command
 ├── add-collection.tsx          # Add collection form
