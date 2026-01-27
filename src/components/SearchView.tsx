@@ -45,6 +45,7 @@ export function SearchView({ searchMode }: SearchViewProps) {
   const [collectionPaths, setCollectionPaths] = useState<Record<string, string>>({});
   const [showDetail, setShowDetail] = useCachedState("showSearchDetail", true);
   const [pendingSearch, setPendingSearch] = useState(false); // For expensive search modes
+  const [isDebouncing, setIsDebouncing] = useState(false); // Track debounce period for keyword search
 
   // Track search request to ignore stale results
   const searchRequestId = useRef(0);
@@ -96,6 +97,7 @@ export function SearchView({ searchMode }: SearchViewProps) {
 
       searchLogger.info("Performing search", { mode: searchMode, query, collection: selectedCollection, requestId: currentRequestId });
       setIsSearching(true);
+      setIsDebouncing(false);
       setPendingSearch(false);
 
       const args = [searchMode, query, "-n", defaultResultCount || "10"];
@@ -162,7 +164,13 @@ export function SearchView({ searchMode }: SearchViewProps) {
     // For expensive searches, mark as pending (user must press Enter)
     if (isExpensiveSearch(searchMode) && text.trim()) {
       setPendingSearch(true);
+      setIsDebouncing(false);
       setResults([]); // Clear previous results
+    } else if (text.trim()) {
+      // For keyword search, mark as debouncing while waiting
+      setIsDebouncing(true);
+    } else {
+      setIsDebouncing(false);
     }
   };
 
@@ -251,7 +259,7 @@ export function SearchView({ searchMode }: SearchViewProps) {
     );
   }
 
-  const isLoading = isSearching || collectionsLoading;
+  const isLoading = isSearching || collectionsLoading || isDebouncing;
 
   return (
     <List
