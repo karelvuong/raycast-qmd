@@ -111,9 +111,9 @@ All commands are top-level Raycast commands (not nested submenus).
 - Fuzzy matching: if path doesn't match exactly, show QMD's suggestions as selectable list
 
 **Generate Embeddings:**
-- Runs in background with toast progress updates
-- Cancel button in persistent toast
-- If already running: show status toast with cancel option
+- Runs with animated toast during processing
+- Shows success message with "up-to-date" or "generated" status
+- Displays error details on failure
 
 **Reset QMD:**
 - Double confirmation: Alert dialog → Second "This cannot be undone" alert
@@ -273,9 +273,8 @@ Core actions only:
 - [x] `getCollections()` - fetch and parse collection list
 - [x] `getContexts()` - fetch and parse context list
 - [x] `getCollectionFiles()` - fetch and parse file list
-- [x] `startBackgroundEmbed()` - spawn background embedding process
-- [x] `isEmbedRunning()` - check if embedding active
-- [x] `cancelActiveEmbed()` - kill running embed process
+- [x] `runEmbed()` - run embedding process (awaitable)
+- [x] `isEmbedRunning()` - returns false (cannot detect cross-command state)
 - [x] `getQmdDatabasePath()` - returns `~/.cache/qmd/index.sqlite`
 - [x] `validateCollectionPath()` - check if directory exists
 - [x] `expandPath()` - expand ~ to home directory
@@ -289,6 +288,7 @@ Core actions only:
 - [x] `parseCollectionList()` - parses `qmd collection list` text output
 - [x] `parseContextList()` - parses `qmd context list` text output
 - [x] `parseFileList()` - parses `qmd ls` text output
+- [x] `parseStatus()` - parses `qmd status` text output into structured data
 - [x] `index.ts` - barrel export for all parsers
 
 **Hooks**
@@ -302,7 +302,7 @@ Core actions only:
   - Manages last 10 searches in LocalStorage
   - `history`, `addToHistory()`, `clearHistory()`
 - [x] `useIndexingState` (`src/hooks/useIndexingState.ts`)
-  - Polls `isEmbedRunning()` every second
+  - Polls `isEmbedRunning()` every second (always returns false - cross-command state not detectable)
   - Returns `{ isIndexing }`
 
 #### Phase 2: Search Commands
@@ -359,9 +359,9 @@ Core actions only:
   - Displays raw QMD status output (JSON not supported)
   - Refresh action
 - [x] `generate-embeddings.tsx`
-  - Background process with toast progress
-  - Cancel functionality
-  - "Already running" detection
+  - Awaits `runEmbed()` directly with animated toast
+  - Shows "up-to-date" or "generated" success message
+  - Displays error details on failure
 - [x] `cleanup.tsx`
   - Runs `qmd cleanup`
   - Success/failure toast
@@ -433,9 +433,10 @@ Core actions only:
 2. **Bug Fixes (if found during testing)**
    - [ ] Address any issues discovered during manual testing
 
-3. **Status Command Enhancement**
-   - [ ] Parse `qmd status` text output into structured display
-   - [ ] Show collections, document counts, embedding status in organized format
+3. **Status Command Enhancement** ✅
+   - [x] Parse `qmd status` text output into structured display
+   - [x] Show collections, document counts, embedding status in organized format
+   - [x] Native List view with sections for Index, Documents, and Collections
 
 #### Medium Priority
 
@@ -504,7 +505,8 @@ src/
 │       ├── index.ts            # Barrel export
 │       ├── collection.ts       # parseCollectionList()
 │       ├── context.ts          # parseContextList()
-│       └── file-list.ts        # parseFileList()
+│       ├── file-list.ts        # parseFileList()
+│       └── status.ts           # parseStatus()
 ├── hooks/
 │   ├── useDependencyCheck.ts   # Dependency validation
 │   ├── useSearchHistory.ts     # Search history in LocalStorage
@@ -530,8 +532,15 @@ src/
 
 ### Next Steps
 
-1. **Immediate:** Manual testing of all commands
-2. **Then:** Fix any bugs discovered
-3. **Then:** Write comprehensive README
-4. **Then:** Capture screenshots
-5. **Finally:** Submit to Raycast Store
+1. ~~**Immediate:** Add logging throughout the codebase~~ ✅
+   - [x] Add `searchLogger` calls in SearchView.tsx
+   - [x] Add `collectionsLogger` calls in manage-collections.tsx
+   - [x] Add `contextsLogger` calls in manage-contexts.tsx
+   - [x] Add `embedLogger` calls in generate-embeddings.tsx
+2. ~~**Optional:** Add `useCachedState` for UI preferences~~ ✅
+   - [x] `showSearchDetail` toggle with Cmd+Shift+D shortcut
+3. **Next:** Manual testing of all commands
+4. **Then:** Fix any bugs discovered
+5. **Then:** Write comprehensive README
+6. **Then:** Capture screenshots
+7. **Finally:** Submit to Raycast Store
