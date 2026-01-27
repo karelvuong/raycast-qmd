@@ -17,13 +17,6 @@
   "license": "MIT",
   "commands": [
     {
-      "name": "search",
-      "title": "Search",
-      "subtitle": "QMD",
-      "description": "Search your markdown collections using your preferred search mode",
-      "mode": "view"
-    },
-    {
       "name": "keyword-search",
       "title": "Keyword Search",
       "subtitle": "QMD",
@@ -142,28 +135,6 @@
       "type": "textfield",
       "default": "0",
       "required": false
-    },
-    {
-      "name": "defaultSearchMode",
-      "title": "Default Search Mode",
-      "description": "Preferred search mode when opening QMD",
-      "type": "dropdown",
-      "default": "query",
-      "required": false,
-      "data": [
-        {
-          "title": "Hybrid Search (Best Quality)",
-          "value": "query"
-        },
-        {
-          "title": "Keyword Search (Fastest)",
-          "value": "search"
-        },
-        {
-          "title": "Semantic Search",
-          "value": "vsearch"
-        }
-      ]
     }
   ],
   "dependencies": {

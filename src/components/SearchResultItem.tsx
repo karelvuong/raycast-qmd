@@ -1,15 +1,12 @@
 import { existsSync } from "node:fs";
 import { Action, ActionPanel, Color, Icon, List, showToast, Toast } from "@raycast/api";
-import type { QmdGetResult, QmdSearchResult, SearchMode } from "../types";
+import type { QmdGetResult, QmdSearchResult } from "../types";
 import { formatScorePercentage, getScoreColor, runQmd } from "../utils/qmd";
 
 interface SearchResultItemProps {
   result: QmdSearchResult;
   showDetail?: boolean;
   onToggleDetail?: () => void;
-  // Mode switching
-  searchMode: SearchMode;
-  onSwitchMode: (mode: SearchMode) => void;
   // Option toggles
   showFullDocument: boolean;
   showLineNumbers: boolean;
@@ -23,8 +20,6 @@ export function SearchResultItem({
   result,
   showDetail,
   onToggleDetail,
-  searchMode,
-  onSwitchMode,
   showFullDocument,
   showLineNumbers,
   showAllResults,
@@ -122,26 +117,6 @@ ${result.snippet || ""}
               content={result.docid}
               shortcut={{ modifiers: ["cmd", "opt"], key: "c" }}
               title="Copy DocID"
-            />
-          </ActionPanel.Section>
-          <ActionPanel.Section title="Search Mode">
-            <Action
-              icon={searchMode === "search" ? Icon.Checkmark : Icon.MagnifyingGlass}
-              onAction={() => onSwitchMode("search")}
-              shortcut={{ modifiers: ["cmd"], key: "1" }}
-              title="Keyword Search"
-            />
-            <Action
-              icon={searchMode === "vsearch" ? Icon.Checkmark : Icon.MagnifyingGlass}
-              onAction={() => onSwitchMode("vsearch")}
-              shortcut={{ modifiers: ["cmd"], key: "2" }}
-              title="Semantic Search"
-            />
-            <Action
-              icon={searchMode === "query" ? Icon.Checkmark : Icon.MagnifyingGlass}
-              onAction={() => onSwitchMode("query")}
-              shortcut={{ modifiers: ["cmd"], key: "3" }}
-              title="Hybrid Search"
             />
           </ActionPanel.Section>
           <ActionPanel.Section title="Options">

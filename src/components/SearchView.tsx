@@ -44,23 +44,9 @@ interface SearchViewProps {
   searchMode: SearchMode;
 }
 
-// Search mode metadata for dropdown and display
-const SEARCH_MODES: {
-  value: SearchMode;
-  title: string;
-  description: string;
-}[] = [
-  { value: "search", title: "Keyword", description: "Fastest" },
-  { value: "vsearch", title: "Semantic", description: "AI-powered" },
-  { value: "query", title: "Hybrid", description: "Best Quality" },
-];
-
-export function SearchView({ searchMode: initialSearchMode }: SearchViewProps) {
-  // Debug logging
-  searchLogger.info("SearchView mounted", { initialSearchMode });
-
+export function SearchView({ searchMode }: SearchViewProps) {
   const { isLoading: isDepsLoading, isReady } = useDependencyCheck();
-  const { history, addToHistory, clearHistory } = useSearchHistory();
+  const { history, addToHistory, clearHistory } = useSearchHistory(searchMode);
   const { isIndexing } = useIndexingState();
 
   const [searchText, setSearchText] = useState("");
@@ -72,14 +58,6 @@ export function SearchView({ searchMode: initialSearchMode }: SearchViewProps) {
   const [showDetail, setShowDetail] = useCachedState("showSearchDetail", true);
   const [pendingSearch, setPendingSearch] = useState(false); // For expensive search modes
   const [isDebouncing, setIsDebouncing] = useState(false); // Track debounce period for keyword search
-
-  // Search mode as state (allows in-session switching)
-  const [searchMode, setSearchMode] = useState<SearchMode>(initialSearchMode);
-
-  // Debug: log actual state value
-  useEffect(() => {
-    searchLogger.info("searchMode state", { searchMode, initialSearchMode });
-  }, [searchMode, initialSearchMode]);
 
   // Search options (persisted via cached state)
   const [showFullDocument, setShowFullDocument] = useCachedState("searchShowFull", false);
@@ -201,7 +179,7 @@ export function SearchView({ searchMode: initialSearchMode }: SearchViewProps) {
         });
         setResults(enrichedResults);
         // Add to history
-        await addToHistory(query, searchMode);
+        await addToHistory(query);
       } else {
         searchLogger.warn("Search returned no results or failed", {
           error: result.error,
@@ -293,45 +271,11 @@ export function SearchView({ searchMode: initialSearchMode }: SearchViewProps) {
 
   // Get search bar placeholder
   const getPlaceholder = () => {
-    const modeInfo = SEARCH_MODES.find((m) => m.value === searchMode);
-    const modeLabel = modeInfo ? `${modeInfo.title}` : getSearchModeTitle();
     if (isExpensiveSearch(searchMode)) {
-      return `${modeLabel} Search via QMD...`;
+      return `${getSearchModeTitle()} (press Enter to search)...`;
     }
-    return `${modeLabel} Search...`;
+    return `${getSearchModeTitle()}...`;
   };
-
-  // Handle mode switch
-  const switchToMode = useCallback(
-    (mode: SearchMode) => {
-      if (mode !== searchMode) {
-        setSearchMode(mode);
-        setResults([]); // Clear results when switching modes
-        if (searchText.trim()) {
-          if (isExpensiveSearch(mode)) {
-            setPendingSearch(true);
-          } else {
-            // Trigger immediate search for keyword mode
-            setIsDebouncing(true);
-          }
-        }
-      }
-    },
-    [searchMode, searchText]
-  );
-
-  // Handle dropdown change (mode or collection)
-  const handleDropdownChange = useCallback(
-    (value: string) => {
-      if (value.startsWith("mode:")) {
-        const mode = value.replace("mode:", "") as SearchMode;
-        switchToMode(mode);
-      } else {
-        setSelectedCollection(value);
-      }
-    },
-    [switchToMode]
-  );
 
   // Get empty state content based on search mode
   const getEmptyStateContent = () => {
@@ -339,14 +283,12 @@ export function SearchView({ searchMode: initialSearchMode }: SearchViewProps) {
       case "search":
         return {
           title: "No Matches Found",
-          description:
-            "No exact keyword matches. Try Semantic Search (⌘2) for meaning-based results.",
+          description: "No exact keyword matches. Try Semantic Search for meaning-based results.",
         };
       case "vsearch":
         return {
           title: "No Semantic Matches",
-          description:
-            "Try different phrasing or Hybrid Search (⌘3) which combines keywords with semantic matching.",
+          description: "Try different phrasing or Hybrid Search which combines keywords with semantic matching.",
         };
       case "query":
         return {
@@ -383,32 +325,16 @@ export function SearchView({ searchMode: initialSearchMode }: SearchViewProps) {
       isShowingDetail={results.length > 0 && showDetail}
       onSearchTextChange={onSearchTextChange}
       searchBarAccessory={
-        <List.Dropdown value={`mode:${searchMode}`} onChange={handleDropdownChange} tooltip="Search mode & collection">
-          <List.Dropdown.Section title="Search Mode">
-            {SEARCH_MODES.map((mode) => (
-              <List.Dropdown.Item
-                icon={searchMode === mode.value ? Icon.Checkmark : Icon.MagnifyingGlass}
-                key={mode.value}
-                title={`${mode.title} (${mode.description})`}
-                value={`mode:${mode.value}`}
-              />
-            ))}
-          </List.Dropdown.Section>
-          <List.Dropdown.Section title="Collection">
-            <List.Dropdown.Item
-              icon={selectedCollection === "all" ? Icon.Checkmark : Icon.Folder}
-              title="All Collections"
-              value="all"
-            />
+        <List.Dropdown
+          onChange={setSelectedCollection}
+          tooltip="Filter by collection"
+          value={selectedCollection}
+        >
+          <List.Dropdown.Item title="All Collections" value="all" />
+          <List.Dropdown.Section title="Collections">
             {collections.map((col) => (
               <List.Dropdown.Item
-                icon={
-                  selectedCollection === col.name
-                    ? Icon.Checkmark
-                    : col.exists
-                      ? Icon.Folder
-                      : Icon.Warning
-                }
+                icon={col.exists ? Icon.Folder : Icon.Warning}
                 key={col.name}
                 title={col.name}
                 value={col.name}
@@ -484,13 +410,11 @@ export function SearchView({ searchMode: initialSearchMode }: SearchViewProps) {
           {results.map((result, index) => (
             <SearchResultItem
               key={`${result.collection || "unknown"}-${result.docid}-${index}`}
-              onSwitchMode={switchToMode}
               onToggleAllResults={() => setShowAllResults(!showAllResults)}
               onToggleDetail={() => setShowDetail(!showDetail)}
               onToggleFullDocument={() => setShowFullDocument(!showFullDocument)}
               onToggleLineNumbers={() => setShowLineNumbers(!showLineNumbers)}
               result={result}
-              searchMode={searchMode}
               showAllResults={showAllResults}
               showDetail={showDetail}
               showFullDocument={showFullDocument}

@@ -77,14 +77,12 @@ export interface SearchOptions {
 
 export interface SearchHistoryItem {
   query: string;
-  mode: SearchMode;
   timestamp: number;
 }
 
 export interface ExtensionPreferences {
   defaultResultCount: string; // "5" | "10" | "20" | "50"
   defaultMinScore: string; // Numeric string
-  defaultSearchMode: SearchMode;
 }
 
 export type ScoreColor = "green" | "yellow" | "red";
