@@ -54,7 +54,9 @@ export function SearchResultItem({ result, collectionPath, showDetail, onToggleD
     ? join(expandPath(collectionPath), relativePath)
     : result.fullPath;
 
-  const fileExists = fullPath ? existsSync(fullPath) : false;
+  // Note: We don't check file existence because qmd normalizes paths
+  // (e.g., "3. Logs" becomes "3-logs") and we can't reliably resolve them
+  const fileExists = true; // Trust that qmd found valid files
 
   // Display path - use relative path or extract from file URL
   const displayPath = relativePath || result.file || "Unknown";

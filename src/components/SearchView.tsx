@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { List, showToast, Toast, Icon, getPreferenceValues, Color, Action, ActionPanel } from "@raycast/api";
 import { useCachedState } from "@raycast/utils";
 import { SearchMode, QmdSearchResult, QmdCollection, ExtensionPreferences } from "../types";
-import { runQmd, getCollections, validateCollectionPath } from "../utils/qmd";
+import { runQmd, getCollections, validateCollectionPath, getCollectionPaths } from "../utils/qmd";
 import { useDependencyCheck } from "../hooks/useDependencyCheck";
 import { useSearchHistory } from "../hooks/useSearchHistory";
 import { useIndexingState } from "../hooks/useIndexingState";
@@ -59,24 +59,22 @@ export function SearchView({ searchMode }: SearchViewProps) {
     const loadCollections = async () => {
       searchLogger.info("Loading collections");
       setCollectionsLoading(true);
+
+      // Get collection paths from qmd config file
+      const paths = getCollectionPaths();
+      console.log("[SearchView] Collection paths from config:", paths);
+      setCollectionPaths(paths);
+
       const result = await getCollections();
       if (result.success && result.data) {
-        // Validate paths and store mapping
+        // Validate paths using the config-based paths
         const validated = result.data.map((col) => ({
           ...col,
-          exists: col.path ? validateCollectionPath(col.path) : true,
+          path: paths[col.name] || col.path, // Use config path if available
+          exists: paths[col.name] ? validateCollectionPath(paths[col.name]) : true,
         }));
         setCollections(validated);
         searchLogger.info("Collections loaded", { count: validated.length });
-
-        // Create path mapping for full path resolution
-        const paths: Record<string, string> = {};
-        validated.forEach((col) => {
-          if (col.path) {
-            paths[col.name] = col.path;
-          }
-        });
-        setCollectionPaths(paths);
       }
       setCollectionsLoading(false);
     };
