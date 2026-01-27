@@ -281,6 +281,11 @@ export async function runQmd<T>(
     });
 
     if (includeJson && stdout.trim()) {
+      // Handle "No results found" message from qmd CLI
+      if (stdout.trim().startsWith("No results")) {
+        return { success: true, data: [] as unknown as T, stderr: stderr || undefined };
+      }
+
       try {
         const data = JSON.parse(stdout) as T;
         return { success: true, data, stderr: stderr || undefined };
