@@ -315,6 +315,28 @@ export function SearchView({ searchMode }: SearchViewProps) {
         </List.Section>
       )}
 
+      {/* Debouncing state - show while waiting for user to stop typing (keyword search only) */}
+      {searchText.trim() && isDebouncing && !isSearching && results.length === 0 && (
+        <List.Section>
+          <List.Item
+            title="Searching..."
+            subtitle="Waiting for you to finish typing"
+            icon={{ source: Icon.MagnifyingGlass, tintColor: Color.SecondaryText }}
+          />
+        </List.Section>
+      )}
+
+      {/* Searching state - show while actively searching */}
+      {searchText.trim() && isSearching && results.length === 0 && (
+        <List.Section>
+          <List.Item
+            title="Searching..."
+            subtitle={searchMode === "search" ? "Finding keyword matches" : searchMode === "vsearch" ? "Running semantic analysis" : "Running hybrid search"}
+            icon={{ source: Icon.MagnifyingGlass, tintColor: Color.Blue }}
+          />
+        </List.Section>
+      )}
+
       {/* Search results */}
       {searchText.trim() && results.length > 0 && (
         <List.Section title={`Results (${results.length})`}>
@@ -330,8 +352,8 @@ export function SearchView({ searchMode }: SearchViewProps) {
         </List.Section>
       )}
 
-      {/* Empty state with query - no results (only show if not pending and not loading) */}
-      {searchText.trim() && results.length === 0 && !isLoading && !pendingSearch && (
+      {/* Empty state with query - no results (only show after search completes with no results) */}
+      {searchText.trim() && results.length === 0 && !isSearching && !isDebouncing && !pendingSearch && !collectionsLoading && (
         <List.EmptyView
           icon={Icon.MagnifyingGlass}
           title={getEmptyStateContent().title}
