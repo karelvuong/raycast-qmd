@@ -142,10 +142,18 @@ export function SearchResultItem({
                 text={result.collection || "Unknown"}
                 title="Collection"
               />
-              <List.Item.Detail.Metadata.Label icon={Icon.Document} text={displayPath} title="Path" />
+              <List.Item.Detail.Metadata.Label
+                icon={Icon.Document}
+                text={displayPath}
+                title="Path"
+              />
               <List.Item.Detail.Metadata.Separator />
               {contextLine && (
-                <List.Item.Detail.Metadata.Label icon={Icon.Text} text={contextLine} title="Context" />
+                <List.Item.Detail.Metadata.Label
+                  icon={Icon.Text}
+                  text={contextLine}
+                  title="Context"
+                />
               )}
               <List.Item.Detail.Metadata.Label text={result.docid} title="DocID" />
               <List.Item.Detail.Metadata.TagList title="Score">

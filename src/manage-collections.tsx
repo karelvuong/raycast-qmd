@@ -6,7 +6,9 @@ import {
   confirmAlert,
   Form,
   Icon,
+  LaunchType,
   List,
+  launchCommand,
   showToast,
   Toast,
   useNavigation,
@@ -83,9 +85,12 @@ export default function Command() {
         <List.EmptyView
           actions={
             <ActionPanel>
-              <Action.Push
+              <Action
                 icon={Icon.Plus}
-                target={<AddCollectionRedirect />}
+                onAction={() =>
+                  launchCommand({ name: "add-collection", type: LaunchType.UserInitiated })
+                }
+                shortcut={{ modifiers: ["cmd"], key: "n" }}
                 title="Add Collection"
               />
             </ActionPanel>
@@ -101,15 +106,6 @@ export default function Command() {
       ))}
     </List>
   );
-}
-
-function AddCollectionRedirect() {
-  const { pop } = useNavigation();
-  useEffect(() => {
-    // This is a workaround - in real usage, user would use the Add Collection command directly
-    pop();
-  }, []);
-  return <List isLoading={true} />;
 }
 
 interface CollectionItemProps {
@@ -281,6 +277,14 @@ function CollectionItem({ collection, onRefresh }: CollectionItemProps) {
               title="List Files"
             />
             {collection.exists && <Action.ShowInFinder path={expandPath(collection.path)} />}
+            <Action
+              icon={Icon.Plus}
+              onAction={() =>
+                launchCommand({ name: "add-collection", type: LaunchType.UserInitiated })
+              }
+              shortcut={{ modifiers: ["cmd"], key: "n" }}
+              title="Add Collection"
+            />
           </ActionPanel.Section>
 
           <ActionPanel.Section title="Manage">

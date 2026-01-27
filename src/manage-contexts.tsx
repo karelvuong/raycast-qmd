@@ -145,7 +145,10 @@ function ContextItem({ context, onRefresh }: ContextItemProps) {
 
     const result = await runQmdRaw(["context", "rm", context.path]);
 
-    if (result.success) {
+    // Treat "No context found" as success - the context is gone either way
+    const isNotFoundError = result.error?.includes("No context found");
+
+    if (result.success || isNotFoundError) {
       contextsLogger.info("Context removed", { path: context.path });
       toast.style = Toast.Style.Success;
       toast.title = "Context removed";
@@ -240,7 +243,10 @@ function EditContextForm({ context, onEdit }: EditContextFormProps) {
     // QMD doesn't have an edit command, so we remove and re-add
     const removeResult = await runQmdRaw(["context", "rm", context.path]);
 
-    if (!removeResult.success) {
+    // Treat "No context found" as success - we're replacing it anyway
+    const isNotFoundError = removeResult.error?.includes("No context found");
+
+    if (!removeResult.success && !isNotFoundError) {
       contextsLogger.error("Failed to remove context during update", {
         error: removeResult.error,
       });
@@ -296,7 +302,10 @@ function EditContextForm({ context, onEdit }: EditContextFormProps) {
 
     const result = await runQmdRaw(["context", "rm", context.path]);
 
-    if (result.success) {
+    // Treat "No context found" as success - the context is gone either way
+    const isNotFoundError = result.error?.includes("No context found");
+
+    if (result.success || isNotFoundError) {
       contextsLogger.info("Context removed", { path: context.path });
       toast.style = Toast.Style.Success;
       toast.title = "Context removed";
