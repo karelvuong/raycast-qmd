@@ -167,7 +167,7 @@ ${result.snippet || ""}
             />
             <Action.CopyToClipboard
               title="Copy DocID"
-              content={`#${result.docid}`}
+              content={result.docid}
               shortcut={{ modifiers: ["cmd", "opt"], key: "c" }}
             />
           </ActionPanel.Section>
