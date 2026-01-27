@@ -41,30 +41,11 @@ export function SearchResultItem({
 
   const accessories: List.Item.Accessory[] = [{ tag: { value: scorePercentage, color: tagColor } }];
 
-  // Add stale file indicator if file doesn't exist
-  if (fullPath && !fileExists) {
-    accessories.unshift({
-      icon: { source: Icon.Warning, tintColor: Color.Orange },
-      tooltip: "File not found on disk",
-    });
-  }
-
-  // Build detail markdown with full snippet (including @@ context)
-  const detailMarkdown = `# ${result.title || displayPath}
-
-\`\`\`
-${result.snippet || ""}
-\`\`\`
-
----
-
-**Collection:** ${result.collection || "Unknown"}
-
-**Path:** ${displayPath}
-
-**DocID:** \`${result.docid}\`
-
-**Score:** ${scorePercentage}`;
+  // Parse snippet to extract context line (e.g., "@@ -1,3 (0 before, 2 after)")
+  const snippet = result.snippet || "";
+  const contextMatch = snippet.match(/^@@\s+[^\n]+/);
+  const contextLine = contextMatch ? contextMatch[0] : null;
+  const contentMarkdown = contextMatch ? snippet.slice(contextMatch[0].length).trim() : snippet;
 
   return (
     <List.Item
@@ -151,7 +132,29 @@ ${result.snippet || ""}
           </ActionPanel.Section>
         </ActionPanel>
       }
-      detail={<List.Item.Detail markdown={detailMarkdown} />}
+      detail={
+        <List.Item.Detail
+          markdown={contentMarkdown}
+          metadata={
+            <List.Item.Detail.Metadata>
+              <List.Item.Detail.Metadata.Label
+                icon={Icon.Folder}
+                text={result.collection || "Unknown"}
+                title="Collection"
+              />
+              <List.Item.Detail.Metadata.Label icon={Icon.Document} text={displayPath} title="Path" />
+              <List.Item.Detail.Metadata.Separator />
+              {contextLine && (
+                <List.Item.Detail.Metadata.Label icon={Icon.Text} text={contextLine} title="Context" />
+              )}
+              <List.Item.Detail.Metadata.Label text={result.docid} title="DocID" />
+              <List.Item.Detail.Metadata.TagList title="Score">
+                <List.Item.Detail.Metadata.TagList.Item color={tagColor} text={scorePercentage} />
+              </List.Item.Detail.Metadata.TagList>
+            </List.Item.Detail.Metadata>
+          }
+        />
+      }
       icon={fileExists ? Icon.Document : { source: Icon.Document, tintColor: Color.SecondaryText }}
       title={result.title || displayPath}
     />
