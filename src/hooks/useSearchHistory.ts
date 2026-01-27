@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
 import { LocalStorage } from "@raycast/api";
-import { SearchHistoryItem, SearchMode } from "../types";
+import { useCallback, useEffect, useState } from "react";
+import type { SearchHistoryItem, SearchMode } from "../types";
 
 const HISTORY_KEY = "qmd-search-history";
 const MAX_HISTORY_ITEMS = 10;
@@ -36,7 +36,9 @@ export function useSearchHistory(): UseSearchHistoryResult {
   }, []);
 
   const addToHistory = useCallback(async (query: string, mode: SearchMode) => {
-    if (!query.trim()) return;
+    if (!query.trim()) {
+      return;
+    }
 
     const newItem: SearchHistoryItem = {
       query: query.trim(),
@@ -46,7 +48,9 @@ export function useSearchHistory(): UseSearchHistoryResult {
 
     setHistory((prev) => {
       // Remove existing entry with same query and mode
-      const filtered = prev.filter((item) => !(item.query === newItem.query && item.mode === newItem.mode));
+      const filtered = prev.filter(
+        (item) => !(item.query === newItem.query && item.mode === newItem.mode)
+      );
       // Add new item at the beginning
       const newHistory = [newItem, ...filtered].slice(0, MAX_HISTORY_ITEMS);
 

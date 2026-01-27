@@ -1,4 +1,4 @@
-import { QmdStatus, QmdCollectionStatus } from "../../types";
+import type { QmdCollectionStatus, QmdStatus } from "../../types";
 
 interface StatusContext {
   path: string;
@@ -41,7 +41,7 @@ export interface ParsedStatus extends Omit<QmdStatus, "collections"> {
  * ```
  */
 export function parseStatus(text: string): ParsedStatus | null {
-  if (!text || !text.includes("QMD Status")) {
+  if (!text?.includes("QMD Status")) {
     return null;
   }
 
@@ -95,12 +95,12 @@ export function parseStatus(text: string): ParsedStatus | null {
       if (trimmed.startsWith("Total:")) {
         const match = trimmed.match(/Total:\s+(\d+)/);
         if (match) {
-          result.totalDocuments = parseInt(match[1], 10);
+          result.totalDocuments = Number.parseInt(match[1], 10);
         }
       } else if (trimmed.startsWith("Vectors:")) {
         const match = trimmed.match(/Vectors:\s+(\d+)/);
         if (match) {
-          result.embeddedDocuments = parseInt(match[1], 10);
+          result.embeddedDocuments = Number.parseInt(match[1], 10);
         }
       } else if (trimmed.startsWith("Updated:")) {
         result.lastUpdated = trimmed.replace("Updated:", "").trim();
@@ -134,7 +134,7 @@ export function parseStatus(text: string): ParsedStatus | null {
         } else if (trimmed.startsWith("Files:")) {
           const filesMatch = trimmed.match(/Files:\s+(\d+)/);
           if (filesMatch) {
-            currentCollection.documentCount = parseInt(filesMatch[1], 10);
+            currentCollection.documentCount = Number.parseInt(filesMatch[1], 10);
           }
           const updatedMatch = trimmed.match(/\(updated\s+(.+?)\)/);
           if (updatedMatch) {

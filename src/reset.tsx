@@ -1,12 +1,13 @@
-import { closeMainWindow, showToast, Toast, confirmAlert, Alert } from "@raycast/api";
-import { existsSync, unlinkSync } from "fs";
+import { existsSync, unlinkSync } from "node:fs";
+import { Alert, closeMainWindow, confirmAlert, showToast, Toast } from "@raycast/api";
 import { getQmdDatabasePath } from "./utils/qmd";
 
 export default async function Command() {
   // First confirmation
   const firstConfirm = await confirmAlert({
     title: "Reset QMD?",
-    message: "This will delete all collections, contexts, and embeddings. The database file will be removed.",
+    message:
+      "This will delete all collections, contexts, and embeddings. The database file will be removed.",
     primaryAction: {
       title: "Continue",
       style: Alert.ActionStyle.Destructive,

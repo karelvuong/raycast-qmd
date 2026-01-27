@@ -1,7 +1,7 @@
+import { Action, ActionPanel, Form, Icon, popToRoot, showToast, Toast } from "@raycast/api";
 import { useState } from "react";
-import { Form, ActionPanel, Action, Icon, showToast, Toast, popToRoot } from "@raycast/api";
-import { runQmdRaw } from "./utils/qmd";
 import { useDependencyCheck } from "./hooks/useDependencyCheck";
+import { runQmdRaw } from "./utils/qmd";
 
 export default function Command() {
   const { isLoading: isDepsLoading, isReady } = useDependencyCheck();
@@ -9,7 +9,7 @@ export default function Command() {
   const [pathError, setPathError] = useState<string | undefined>();
 
   const validatePath = (value: string | undefined) => {
-    if (!value || !value.trim()) {
+    if (!value?.trim()) {
       setPathError("Path is required");
       return false;
     }
@@ -18,7 +18,9 @@ export default function Command() {
   };
 
   const handleSubmit = async (values: { path: string; description: string }) => {
-    if (!validatePath(values.path)) return;
+    if (!validatePath(values.path)) {
+      return;
+    }
     if (!values.description.trim()) {
       await showToast({
         style: Toast.Style.Failure,
@@ -33,7 +35,12 @@ export default function Command() {
       title: "Adding context...",
     });
 
-    const result = await runQmdRaw(["context", "add", values.path.trim(), values.description.trim()]);
+    const result = await runQmdRaw([
+      "context",
+      "add",
+      values.path.trim(),
+      values.description.trim(),
+    ]);
 
     if (result.success) {
       toast.style = Toast.Style.Success;
@@ -67,26 +74,26 @@ export default function Command() {
 
   return (
     <Form
-      isLoading={isSubmitting}
       actions={
         <ActionPanel>
-          <Action.SubmitForm title="Add Context" onSubmit={handleSubmit} icon={Icon.Plus} />
+          <Action.SubmitForm icon={Icon.Plus} onSubmit={handleSubmit} title="Add Context" />
         </ActionPanel>
       }
+      isLoading={isSubmitting}
     >
       <Form.TextField
-        id="path"
-        title="Path"
-        placeholder="qmd://collection-name or qmd://collection/path/to/file.md"
-        info="Use qmd://collection for collection-level context, or qmd://collection/path for document-level context"
         error={pathError}
+        id="path"
+        info="Use qmd://collection for collection-level context, or qmd://collection/path for document-level context"
         onChange={(value) => validatePath(value)}
+        placeholder="qmd://collection-name or qmd://collection/path/to/file.md"
+        title="Path"
       />
       <Form.TextArea
         id="description"
-        title="Description"
-        placeholder="Description to help improve search relevance..."
         info="This context will be used to enhance search results for the specified path"
+        placeholder="Description to help improve search relevance..."
+        title="Description"
       />
     </Form>
   );

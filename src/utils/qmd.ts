@@ -1,9 +1,16 @@
-import { exec } from "child_process";
-import { promisify } from "util";
-import { existsSync, readFileSync } from "fs";
-import { homedir, platform } from "os";
-import { join } from "path";
-import { DependencyStatus, QmdResult, QmdCollection, QmdContext, QmdFileListItem, ScoreColor } from "../types";
+import { exec } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { homedir, platform } from "node:os";
+import { join } from "node:path";
+import { promisify } from "node:util";
+import type {
+  DependencyStatus,
+  QmdCollection,
+  QmdContext,
+  QmdFileListItem,
+  QmdResult,
+  ScoreColor,
+} from "../types";
 import { parseCollectionList, parseContextList, parseFileList } from "./parsers";
 
 const execAsync = promisify(exec);
@@ -56,7 +63,7 @@ export function getCollectionPaths(): Record<string, string> {
 
       if (inCollections) {
         // Match collection name (2 spaces indent)
-        const collectionMatch = line.match(/^  (\S+):\s*$/);
+        const collectionMatch = line.match(/^ {2}(\S+):\s*$/);
         if (collectionMatch) {
           currentCollection = collectionMatch[1];
           continue;
@@ -64,7 +71,7 @@ export function getCollectionPaths(): Record<string, string> {
 
         // Match path line (4 spaces indent)
         if (currentCollection) {
-          const pathMatch = line.match(/^    path:\s*(.+)$/);
+          const pathMatch = line.match(/^ {4}path:\s*(.+)$/);
           if (pathMatch) {
             paths[currentCollection] = pathMatch[1].trim();
             currentCollection = null;
@@ -165,7 +172,10 @@ export function expandPath(path: string): string {
 /**
  * Check if Bun is installed
  */
-export async function checkBunInstalled(): Promise<{ installed: boolean; version?: string }> {
+export async function checkBunInstalled(): Promise<{
+  installed: boolean;
+  version?: string;
+}> {
   const bunPath = getBunExecutable();
 
   // Check if bun exists at the expected path
@@ -175,7 +185,10 @@ export async function checkBunInstalled(): Promise<{ installed: boolean; version
 
   // fallback: Try running bun to check if it's in PATH
   try {
-    const { stdout } = await execAsync("bun --version", { timeout: 5000, env: getEnvWithPath() });
+    const { stdout } = await execAsync("bun --version", {
+      timeout: 5000,
+      env: getEnvWithPath(),
+    });
     return { installed: true, version: stdout.trim() };
   } catch {
     return { installed: false };
@@ -185,7 +198,10 @@ export async function checkBunInstalled(): Promise<{ installed: boolean; version
 /**
  * Check if QMD is installed
  */
-export async function checkQmdInstalled(): Promise<{ installed: boolean; version?: string }> {
+export async function checkQmdInstalled(): Promise<{
+  installed: boolean;
+  version?: string;
+}> {
   const qmdScript = getQmdScript();
 
   if (!existsSync(qmdScript)) {
@@ -204,12 +220,18 @@ export async function checkSqliteInstalled(): Promise<boolean> {
     return true;
   }
   try {
-    await execAsync("brew list sqlite", { timeout: 5000, env: getEnvWithPath() });
+    await execAsync("brew list sqlite", {
+      timeout: 5000,
+      env: getEnvWithPath(),
+    });
     return true;
   } catch {
     // SQLite might be available system-wide even if not via Homebrew
     try {
-      await execAsync("sqlite3 --version", { timeout: 5000, env: getEnvWithPath() });
+      await execAsync("sqlite3 --version", {
+        timeout: 5000,
+        env: getEnvWithPath(),
+      });
       return true;
     } catch {
       return false;
@@ -245,9 +267,9 @@ export async function checkAllDependencies(): Promise<DependencyStatus> {
  */
 export async function runQmd<T>(
   args: string[],
-  options: { timeout?: number; includeJson?: boolean } = {},
+  options: { timeout?: number; includeJson?: boolean } = {}
 ): Promise<QmdResult<T>> {
-  const { timeout = 30000, includeJson = true } = options;
+  const { timeout = 30_000, includeJson = true } = options;
 
   try {
     const fullArgs = includeJson ? [...args, "--json"] : args;
@@ -271,9 +293,17 @@ export async function runQmd<T>(
       }
     }
 
-    return { success: true, data: stdout as unknown as T, stderr: stderr || undefined };
+    return {
+      success: true,
+      data: stdout as unknown as T,
+      stderr: stderr || undefined,
+    };
   } catch (error) {
-    const execError = error as { stderr?: string; message?: string; code?: string };
+    const execError = error as {
+      stderr?: string;
+      message?: string;
+      code?: string;
+    };
     return {
       success: false,
       error: execError.message || "Command execution failed",
@@ -285,8 +315,11 @@ export async function runQmd<T>(
 /**
  * Execute a QMD command without JSON parsing (for commands that don't return JSON)
  */
-export async function runQmdRaw(args: string[], options: { timeout?: number } = {}): Promise<QmdResult<string>> {
-  const { timeout = 30000 } = options;
+export async function runQmdRaw(
+  args: string[],
+  options: { timeout?: number } = {}
+): Promise<QmdResult<string>> {
+  const { timeout = 30_000 } = options;
 
   try {
     const command = buildQmdShellCommand(args);
@@ -321,6 +354,15 @@ export async function getCollections(): Promise<QmdResult<QmdCollection[]>> {
   }
 
   const collections = parseCollectionList(result.data || "");
+
+  // Merge paths from config file
+  const paths = getCollectionPaths();
+  for (const collection of collections) {
+    if (paths[collection.name]) {
+      collection.path = paths[collection.name];
+    }
+  }
+
   return { success: true, data: collections };
 }
 
@@ -341,7 +383,9 @@ export async function getContexts(): Promise<QmdResult<QmdContext[]>> {
 /**
  * Get list of files in a collection (parses text output since --json not supported)
  */
-export async function getCollectionFiles(collectionName: string): Promise<QmdResult<QmdFileListItem[]>> {
+export async function getCollectionFiles(
+  collectionName: string
+): Promise<QmdResult<QmdFileListItem[]>> {
   const result = await runQmdRaw(["ls", collectionName]);
 
   if (!result.success) {
@@ -365,7 +409,7 @@ export async function runEmbed(collectionName?: string): Promise<QmdResult<strin
     args.push("-c", collectionName);
   }
 
-  return await runQmdRaw(args, { timeout: 300000 }); // 5 minute timeout
+  return await runQmdRaw(args, { timeout: 300_000 }); // 5 minute timeout
 }
 
 /**
@@ -384,8 +428,12 @@ export function isEmbedRunning(): boolean {
  * Get score color based on relevance
  */
 export function getScoreColor(score: number): ScoreColor {
-  if (score > 0.7) return "green";
-  if (score >= 0.4) return "yellow";
+  if (score > 0.7) {
+    return "green";
+  }
+  if (score >= 0.4) {
+    return "yellow";
+  }
   return "red";
 }
 
@@ -421,7 +469,7 @@ export function getScoreRaycastColor(score: number): string {
 export async function installQmd(): Promise<QmdResult<string>> {
   try {
     const { stdout, stderr } = await execAsync("bun install -g https://github.com/tobi/qmd", {
-      timeout: 120000, // 2 minute timeout for installation
+      timeout: 120_000, // 2 minute timeout for installation
       env: getEnvWithPath(),
     });
     return { success: true, data: stdout, stderr };
@@ -440,12 +488,15 @@ export async function installQmd(): Promise<QmdResult<string>> {
  */
 export async function installSqlite(): Promise<QmdResult<string>> {
   if (platform() !== "darwin") {
-    return { success: false, error: "SQLite installation via Homebrew is only available on macOS" };
+    return {
+      success: false,
+      error: "SQLite installation via Homebrew is only available on macOS",
+    };
   }
 
   try {
     const { stdout, stderr } = await execAsync("brew install sqlite", {
-      timeout: 300000, // 5 minute timeout
+      timeout: 300_000, // 5 minute timeout
       env: getEnvWithPath(),
     });
     return { success: true, data: stdout, stderr };

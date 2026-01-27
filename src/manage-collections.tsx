@@ -1,21 +1,28 @@
-import { useState, useEffect } from "react";
 import {
-  List,
-  ActionPanel,
   Action,
+  ActionPanel,
+  Alert,
+  Color,
+  confirmAlert,
+  Form,
   Icon,
+  List,
   showToast,
   Toast,
-  confirmAlert,
-  Alert,
-  Form,
   useNavigation,
-  Color,
 } from "@raycast/api";
-import { QmdCollection, QmdFileListItem } from "./types";
-import { runQmdRaw, getCollections, getCollectionFiles, validateCollectionPath, expandPath, runEmbed } from "./utils/qmd";
+import { useEffect, useState } from "react";
 import { useDependencyCheck } from "./hooks/useDependencyCheck";
+import type { QmdCollection, QmdFileListItem } from "./types";
 import { collectionsLogger } from "./utils/logger";
+import {
+  expandPath,
+  getCollectionFiles,
+  getCollections,
+  runEmbed,
+  runQmdRaw,
+  validateCollectionPath,
+} from "./utils/qmd";
 
 export default function Command() {
   const { isLoading: isDepsLoading, isReady } = useDependencyCheck();
@@ -23,7 +30,9 @@ export default function Command() {
   const [isLoading, setIsLoading] = useState(true);
 
   const loadCollections = async () => {
-    if (!isReady) return;
+    if (!isReady) {
+      return;
+    }
 
     collectionsLogger.info("Loading collections");
     setIsLoading(true);
@@ -40,7 +49,9 @@ export default function Command() {
       setCollections(validated);
       collectionsLogger.info("Collections loaded", { count: validated.length });
     } else {
-      collectionsLogger.warn("Failed to load collections", { error: result.error });
+      collectionsLogger.warn("Failed to load collections", {
+        error: result.error,
+      });
       setCollections([]);
     }
     setIsLoading(false);
@@ -58,9 +69,9 @@ export default function Command() {
     return (
       <List>
         <List.EmptyView
+          description="Please install the required dependencies to use QMD"
           icon={Icon.Warning}
           title="Dependencies Required"
-          description="Please install the required dependencies to use QMD"
         />
       </List>
     );
@@ -70,19 +81,23 @@ export default function Command() {
     <List isLoading={isLoading} searchBarPlaceholder="Search collections...">
       {collections.length === 0 && !isLoading && (
         <List.EmptyView
-          icon={Icon.Folder}
-          title="No Collections"
-          description="Add a collection to start indexing your markdown files"
           actions={
             <ActionPanel>
-              <Action.Push title="Add Collection" icon={Icon.Plus} target={<AddCollectionRedirect />} />
+              <Action.Push
+                icon={Icon.Plus}
+                target={<AddCollectionRedirect />}
+                title="Add Collection"
+              />
             </ActionPanel>
           }
+          description="Add a collection to start indexing your markdown files"
+          icon={Icon.Folder}
+          title="No Collections"
         />
       )}
 
       {collections.map((collection) => (
-        <CollectionItem key={collection.name} collection={collection} onRefresh={loadCollections} />
+        <CollectionItem collection={collection} key={collection.name} onRefresh={loadCollections} />
       ))}
     </List>
   );
@@ -104,9 +119,14 @@ interface CollectionItemProps {
 
 function CollectionItem({ collection, onRefresh }: CollectionItemProps) {
   const handleRename = async (newName: string) => {
-    if (!newName.trim() || newName === collection.name) return;
+    if (!newName.trim() || newName === collection.name) {
+      return;
+    }
 
-    collectionsLogger.info("Renaming collection", { from: collection.name, to: newName });
+    collectionsLogger.info("Renaming collection", {
+      from: collection.name,
+      to: newName,
+    });
     const toast = await showToast({
       style: Toast.Style.Animated,
       title: "Renaming collection...",
@@ -137,7 +157,9 @@ function CollectionItem({ collection, onRefresh }: CollectionItemProps) {
       },
     });
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     collectionsLogger.info("Removing collection", { name: collection.name });
     const toast = await showToast({
@@ -161,7 +183,9 @@ function CollectionItem({ collection, onRefresh }: CollectionItemProps) {
   };
 
   const handleReembed = async () => {
-    collectionsLogger.info("Starting re-embed", { collection: collection.name });
+    collectionsLogger.info("Starting re-embed", {
+      collection: collection.name,
+    });
     const toast = await showToast({
       style: Toast.Style.Animated,
       title: "Generating embeddings...",
@@ -172,7 +196,9 @@ function CollectionItem({ collection, onRefresh }: CollectionItemProps) {
 
     if (result.success) {
       const output = result.data || "";
-      collectionsLogger.info("Re-embed complete", { collection: collection.name });
+      collectionsLogger.info("Re-embed complete", {
+        collection: collection.name,
+      });
       toast.style = Toast.Style.Success;
 
       if (output.includes("already have embeddings")) {
@@ -182,7 +208,10 @@ function CollectionItem({ collection, onRefresh }: CollectionItemProps) {
       }
       toast.message = collection.name;
     } else {
-      collectionsLogger.error("Re-embed failed", { collection: collection.name, error: result.error });
+      collectionsLogger.error("Re-embed failed", {
+        collection: collection.name,
+        error: result.error,
+      });
       toast.style = Toast.Style.Failure;
       toast.title = "Embedding failed";
       toast.message = result.error;
@@ -192,7 +221,10 @@ function CollectionItem({ collection, onRefresh }: CollectionItemProps) {
   };
 
   const handleUpdate = async (pullFirst: boolean) => {
-    collectionsLogger.info("Updating collection", { collection: collection.name, pullFirst });
+    collectionsLogger.info("Updating collection", {
+      collection: collection.name,
+      pullFirst,
+    });
     const toast = await showToast({
       style: Toast.Style.Animated,
       title: pullFirst ? "Pulling and updating..." : "Updating index...",
@@ -204,16 +236,21 @@ function CollectionItem({ collection, onRefresh }: CollectionItemProps) {
       args.push("--pull");
     }
 
-    const result = await runQmdRaw(args, { timeout: 60000 });
+    const result = await runQmdRaw(args, { timeout: 60_000 });
 
     if (result.success) {
-      collectionsLogger.info("Update complete", { collection: collection.name });
+      collectionsLogger.info("Update complete", {
+        collection: collection.name,
+      });
       toast.style = Toast.Style.Success;
       toast.title = "Index updated";
       toast.message = collection.name;
       await onRefresh();
     } else {
-      collectionsLogger.error("Update failed", { collection: collection.name, error: result.error });
+      collectionsLogger.error("Update failed", {
+        collection: collection.name,
+        error: result.error,
+      });
       toast.style = Toast.Style.Failure;
       toast.title = "Update failed";
       toast.message = result.error;
@@ -234,54 +271,58 @@ function CollectionItem({ collection, onRefresh }: CollectionItemProps) {
 
   return (
     <List.Item
-      title={collection.name}
-      subtitle={collection.path}
-      icon={collection.exists ? Icon.Folder : { source: Icon.Warning, tintColor: Color.Orange }}
       accessories={accessories}
       actions={
         <ActionPanel>
           <ActionPanel.Section>
-            <Action.Push title="List Files" icon={Icon.List} target={<CollectionFiles collection={collection} />} />
+            <Action.Push
+              icon={Icon.List}
+              target={<CollectionFiles collection={collection} />}
+              title="List Files"
+            />
             {collection.exists && <Action.ShowInFinder path={expandPath(collection.path)} />}
           </ActionPanel.Section>
 
           <ActionPanel.Section title="Manage">
             <Action.Push
-              title="Rename"
               icon={Icon.Pencil}
               target={<RenameForm currentName={collection.name} onRename={handleRename} />}
+              title="Rename"
             />
             <Action
-              title="Re-Embed"
               icon={Icon.ArrowClockwise}
-              shortcut={{ modifiers: ["cmd"], key: "e" }}
               onAction={handleReembed}
+              shortcut={{ modifiers: ["cmd"], key: "e" }}
+              title="Re-Embed"
             />
             <Action
-              title="Update Index"
               icon={Icon.ArrowClockwise}
-              shortcut={{ modifiers: ["cmd"], key: "u" }}
               onAction={() => handleUpdate(false)}
+              shortcut={{ modifiers: ["cmd"], key: "u" }}
+              title="Update Index"
             />
             <Action
-              title="Pull & Update"
               icon={Icon.Download}
-              shortcut={{ modifiers: ["cmd", "shift"], key: "u" }}
               onAction={() => handleUpdate(true)}
+              shortcut={{ modifiers: ["cmd", "shift"], key: "u" }}
+              title="Pull & Update"
             />
           </ActionPanel.Section>
 
           <ActionPanel.Section>
             <Action
-              title="Remove Collection"
               icon={Icon.Trash}
-              style={Action.Style.Destructive}
-              shortcut={{ modifiers: ["cmd", "shift"], key: "backspace" }}
               onAction={handleRemove}
+              shortcut={{ modifiers: ["cmd", "shift"], key: "backspace" }}
+              style={Action.Style.Destructive}
+              title="Remove Collection"
             />
           </ActionPanel.Section>
         </ActionPanel>
       }
+      icon={collection.exists ? Icon.Folder : { source: Icon.Warning, tintColor: Color.Orange }}
+      subtitle={collection.path}
+      title={collection.name}
     />
   );
 }
@@ -304,14 +345,14 @@ function RenameForm({ currentName, onRename }: RenameFormProps) {
 
   return (
     <Form
-      isLoading={isSubmitting}
       actions={
         <ActionPanel>
-          <Action.SubmitForm title="Rename" onSubmit={handleSubmit} />
+          <Action.SubmitForm onSubmit={handleSubmit} title="Rename" />
         </ActionPanel>
       }
+      isLoading={isSubmitting}
     >
-      <Form.TextField id="name" title="New Name" defaultValue={currentName} />
+      <Form.TextField defaultValue={currentName} id="name" title="New Name" />
     </Form>
   );
 }
@@ -342,24 +383,28 @@ function CollectionFiles({ collection }: CollectionFilesProps) {
         const fullPath = `${expandPath(collection.path)}/${file.path}`;
         return (
           <List.Item
-            key={file.path}
-            title={file.title || file.path}
-            subtitle={file.path}
-            icon={Icon.Document}
             accessories={[{ text: file.path.split("/").slice(0, -1).join("/") || "root" }]}
             actions={
               <ActionPanel>
-                <Action.Open title="Open File" target={fullPath} />
+                <Action.Open target={fullPath} title="Open File" />
                 <Action.ShowInFinder path={fullPath} />
-                <Action.CopyToClipboard title="Copy Path" content={fullPath} />
+                <Action.CopyToClipboard content={fullPath} title="Copy Path" />
               </ActionPanel>
             }
+            icon={Icon.Document}
+            key={file.path}
+            subtitle={file.path}
+            title={file.title || file.path}
           />
         );
       })}
 
       {files.length === 0 && !isLoading && (
-        <List.EmptyView icon={Icon.Document} title="No Files" description="This collection has no indexed files" />
+        <List.EmptyView
+          description="This collection has no indexed files"
+          icon={Icon.Document}
+          title="No Files"
+        />
       )}
     </List>
   );

@@ -1,4 +1,4 @@
-import { QmdCollection } from "../../types";
+import type { QmdCollection } from "../../types";
 
 /**
  * Parse collection list text output into structured data
@@ -21,7 +21,7 @@ export function parseCollectionList(output: string): QmdCollection[] {
     const collectionMatch = line.match(/^(\S+)\s+\(qmd:\/\/\S+\)/);
     if (collectionMatch) {
       // Save previous collection if exists
-      if (currentCollection && currentCollection.name) {
+      if (currentCollection?.name) {
         collections.push(currentCollection as QmdCollection);
       }
       currentCollection = {
@@ -45,14 +45,13 @@ export function parseCollectionList(output: string): QmdCollection[] {
       // Match files count line
       const filesMatch = line.match(/^\s+Files:\s+(\d+)/);
       if (filesMatch) {
-        currentCollection.documentCount = parseInt(filesMatch[1], 10);
-        continue;
+        currentCollection.documentCount = Number.parseInt(filesMatch[1], 10);
       }
     }
   }
 
   // Don't forget the last collection
-  if (currentCollection && currentCollection.name) {
+  if (currentCollection?.name) {
     collections.push(currentCollection as QmdCollection);
   }
 

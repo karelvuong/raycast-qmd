@@ -1,4 +1,4 @@
-import { QmdGetResult } from "../../types";
+import type { QmdGetResult } from "../../types";
 
 /**
  * Parse the output of `qmd get <path> --full`
@@ -26,7 +26,7 @@ export function parseGetDocument(output: string, query: string): QmdGetResult {
 
   // Query is a path
   let collection = "";
-  let path = query;
+  const path = query;
 
   if (query.startsWith("qmd://")) {
     const pathParts = query.slice(6).split("/");
@@ -35,7 +35,7 @@ export function parseGetDocument(output: string, query: string): QmdGetResult {
 
   // Extract filename for title
   const pathSegments = query.split("/");
-  const filename = pathSegments[pathSegments.length - 1] || query;
+  const filename = pathSegments.at(-1) || query;
   const title = filename.replace(/\.md$/, "");
 
   return {

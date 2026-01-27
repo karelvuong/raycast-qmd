@@ -1,22 +1,22 @@
-import { useState, useEffect } from "react";
 import {
-  List,
-  ActionPanel,
   Action,
+  ActionPanel,
+  Alert,
+  confirmAlert,
+  Form,
   Icon,
+  LaunchType,
+  List,
+  launchCommand,
   showToast,
   Toast,
-  confirmAlert,
-  Alert,
-  Form,
   useNavigation,
-  launchCommand,
-  LaunchType,
 } from "@raycast/api";
-import { QmdContext } from "./types";
-import { runQmdRaw, getContexts } from "./utils/qmd";
+import { useEffect, useState } from "react";
 import { useDependencyCheck } from "./hooks/useDependencyCheck";
+import type { QmdContext } from "./types";
 import { contextsLogger } from "./utils/logger";
+import { getContexts, runQmdRaw } from "./utils/qmd";
 
 export default function Command() {
   const { isLoading: isDepsLoading, isReady } = useDependencyCheck();
@@ -24,7 +24,9 @@ export default function Command() {
   const [isLoading, setIsLoading] = useState(true);
 
   const loadContexts = async () => {
-    if (!isReady) return;
+    if (!isReady) {
+      return;
+    }
 
     contextsLogger.info("Loading contexts");
     setIsLoading(true);
@@ -52,54 +54,57 @@ export default function Command() {
     return (
       <List>
         <List.EmptyView
+          description="Please install the required dependencies to use QMD"
           icon={Icon.Warning}
           title="Dependencies Required"
-          description="Please install the required dependencies to use QMD"
         />
       </List>
     );
   }
 
   const handleAddContext = async () => {
-    await launchCommand({ name: "add-context", type: LaunchType.UserInitiated });
+    await launchCommand({
+      name: "add-context",
+      type: LaunchType.UserInitiated,
+    });
   };
 
   return (
     <List
-      isLoading={isLoading}
-      searchBarPlaceholder="Search contexts..."
       actions={
         <ActionPanel>
           <Action
-            title="Add Context"
             icon={Icon.Plus}
-            shortcut={{ modifiers: ["cmd"], key: "n" }}
             onAction={handleAddContext}
+            shortcut={{ modifiers: ["cmd"], key: "n" }}
+            title="Add Context"
           />
           <Action
-            title="Refresh"
             icon={Icon.ArrowClockwise}
-            shortcut={{ modifiers: ["cmd"], key: "r" }}
             onAction={loadContexts}
+            shortcut={{ modifiers: ["cmd"], key: "r" }}
+            title="Refresh"
           />
         </ActionPanel>
       }
+      isLoading={isLoading}
+      searchBarPlaceholder="Search contexts..."
     >
       {contexts.length === 0 && !isLoading && (
         <List.EmptyView
-          icon={Icon.Text}
-          title="No Contexts"
-          description="Add context descriptions to improve search relevance"
           actions={
             <ActionPanel>
-              <Action title="Add Context" icon={Icon.Plus} onAction={handleAddContext} />
+              <Action icon={Icon.Plus} onAction={handleAddContext} title="Add Context" />
             </ActionPanel>
           }
+          description="Add context descriptions to improve search relevance"
+          icon={Icon.Text}
+          title="No Contexts"
         />
       )}
 
       {contexts.map((context, index) => (
-        <ContextItem key={`${context.path}-${index}`} context={context} onRefresh={loadContexts} />
+        <ContextItem context={context} key={`${context.path}-${index}`} onRefresh={loadContexts} />
       ))}
     </List>
   );
@@ -112,7 +117,10 @@ interface ContextItemProps {
 
 function ContextItem({ context, onRefresh }: ContextItemProps) {
   const handleAddContext = async () => {
-    await launchCommand({ name: "add-context", type: LaunchType.UserInitiated });
+    await launchCommand({
+      name: "add-context",
+      type: LaunchType.UserInitiated,
+    });
   };
 
   const handleRemove = async () => {
@@ -125,7 +133,9 @@ function ContextItem({ context, onRefresh }: ContextItemProps) {
       },
     });
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     contextsLogger.info("Removing context", { path: context.path });
     const toast = await showToast({
@@ -141,7 +151,10 @@ function ContextItem({ context, onRefresh }: ContextItemProps) {
       toast.title = "Context removed";
       await onRefresh();
     } else {
-      contextsLogger.error("Remove failed", { path: context.path, error: result.error });
+      contextsLogger.error("Remove failed", {
+        path: context.path,
+        error: result.error,
+      });
       toast.style = Toast.Style.Failure;
       toast.title = "Remove failed";
       toast.message = result.error;
@@ -150,51 +163,51 @@ function ContextItem({ context, onRefresh }: ContextItemProps) {
 
   return (
     <List.Item
-      title={context.path}
-      subtitle={context.description}
-      icon={context.path.startsWith("qmd://") ? Icon.Link : Icon.Document}
       actions={
         <ActionPanel>
           <ActionPanel.Section>
             <Action.Push
-              title="Edit"
               icon={Icon.Pencil}
               target={<EditContextForm context={context} onEdit={onRefresh} />}
+              title="Edit"
             />
-            <Action.CopyToClipboard title="Copy Path" content={context.path} />
+            <Action.CopyToClipboard content={context.path} title="Copy Path" />
             <Action.CopyToClipboard
-              title="Copy Description"
               content={context.description}
               shortcut={{ modifiers: ["cmd", "shift"], key: "c" }}
+              title="Copy Description"
             />
           </ActionPanel.Section>
 
           <ActionPanel.Section>
             <Action
-              title="Add Context"
               icon={Icon.Plus}
-              shortcut={{ modifiers: ["cmd"], key: "n" }}
               onAction={handleAddContext}
+              shortcut={{ modifiers: ["cmd"], key: "n" }}
+              title="Add Context"
             />
             <Action
-              title="Refresh"
               icon={Icon.ArrowClockwise}
-              shortcut={{ modifiers: ["cmd"], key: "r" }}
               onAction={onRefresh}
+              shortcut={{ modifiers: ["cmd"], key: "r" }}
+              title="Refresh"
             />
           </ActionPanel.Section>
 
           <ActionPanel.Section>
             <Action
-              title="Remove Context"
               icon={Icon.Trash}
-              style={Action.Style.Destructive}
-              shortcut={{ modifiers: ["cmd", "shift"], key: "backspace" }}
               onAction={handleRemove}
+              shortcut={{ modifiers: ["cmd", "shift"], key: "backspace" }}
+              style={Action.Style.Destructive}
+              title="Remove Context"
             />
           </ActionPanel.Section>
         </ActionPanel>
       }
+      icon={context.path.startsWith("qmd://") ? Icon.Link : Icon.Document}
+      subtitle={context.description}
+      title={context.path}
     />
   );
 }
@@ -228,7 +241,9 @@ function EditContextForm({ context, onEdit }: EditContextFormProps) {
     const removeResult = await runQmdRaw(["context", "rm", context.path]);
 
     if (!removeResult.success) {
-      contextsLogger.error("Failed to remove context during update", { error: removeResult.error });
+      contextsLogger.error("Failed to remove context during update", {
+        error: removeResult.error,
+      });
       toast.style = Toast.Style.Failure;
       toast.title = "Failed to update context";
       toast.message = removeResult.error;
@@ -245,7 +260,9 @@ function EditContextForm({ context, onEdit }: EditContextFormProps) {
       await onEdit();
       pop();
     } else {
-      contextsLogger.error("Failed to add context during update", { error: addResult.error });
+      contextsLogger.error("Failed to add context during update", {
+        error: addResult.error,
+      });
       toast.style = Toast.Style.Failure;
       toast.title = "Failed to update context";
       toast.message = addResult.error;
@@ -264,9 +281,13 @@ function EditContextForm({ context, onEdit }: EditContextFormProps) {
       },
     });
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
-    contextsLogger.info("Removing context from edit form", { path: context.path });
+    contextsLogger.info("Removing context from edit form", {
+      path: context.path,
+    });
     setIsSubmitting(true);
     const toast = await showToast({
       style: Toast.Style.Animated,
@@ -282,7 +303,10 @@ function EditContextForm({ context, onEdit }: EditContextFormProps) {
       await onEdit();
       pop();
     } else {
-      contextsLogger.error("Remove failed", { path: context.path, error: result.error });
+      contextsLogger.error("Remove failed", {
+        path: context.path,
+        error: result.error,
+      });
       toast.style = Toast.Style.Failure;
       toast.title = "Remove failed";
       toast.message = result.error;
@@ -292,27 +316,27 @@ function EditContextForm({ context, onEdit }: EditContextFormProps) {
 
   return (
     <Form
-      isLoading={isSubmitting}
       actions={
         <ActionPanel>
           <ActionPanel.Section>
-            <Action.SubmitForm title="Update Context" onSubmit={handleSubmit} />
+            <Action.SubmitForm onSubmit={handleSubmit} title="Update Context" />
           </ActionPanel.Section>
 
           <ActionPanel.Section>
             <Action
-              title="Remove Context"
               icon={Icon.Trash}
-              style={Action.Style.Destructive}
-              shortcut={{ modifiers: ["cmd", "shift"], key: "backspace" }}
               onAction={handleRemove}
+              shortcut={{ modifiers: ["cmd", "shift"], key: "backspace" }}
+              style={Action.Style.Destructive}
+              title="Remove Context"
             />
           </ActionPanel.Section>
         </ActionPanel>
       }
+      isLoading={isSubmitting}
     >
-      <Form.Description title="Path" text={context.path} />
-      <Form.TextArea id="description" title="Description" defaultValue={context.description} />
+      <Form.Description text={context.path} title="Path" />
+      <Form.TextArea defaultValue={context.description} id="description" title="Description" />
     </Form>
   );
 }

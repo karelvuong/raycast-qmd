@@ -1,7 +1,7 @@
+import { Action, ActionPanel, Form, Icon, showToast, Toast, useNavigation } from "@raycast/api";
 import { useState } from "react";
-import { Form, ActionPanel, Action, showToast, Toast, useNavigation, Icon } from "@raycast/api";
 import { useDependencyCheck } from "./hooks/useDependencyCheck";
-import { runQmdRaw, validateCollectionPath, expandPath } from "./utils/qmd";
+import { expandPath, runQmdRaw, validateCollectionPath } from "./utils/qmd";
 
 interface FormValues {
   name: string;
@@ -33,7 +33,7 @@ export default function Command() {
   };
 
   const validateName = (value: string | undefined) => {
-    if (!value || !value.trim()) {
+    if (!value?.trim()) {
       setNameError("Name is required");
       return false;
     }
@@ -46,7 +46,7 @@ export default function Command() {
   };
 
   async function handleSubmit(values: FormValues) {
-    if (!validateName(values.name) || !validatePath(values.path)) {
+    if (!(validateName(values.name) && validatePath(values.path))) {
       return;
     }
 
@@ -77,9 +77,14 @@ export default function Command() {
       }
 
       // Add context if provided
-      if (values.context && values.context.trim()) {
+      if (values.context?.trim()) {
         const contextPath = `qmd://${values.name.trim()}`;
-        const contextResult = await runQmdRaw(["context", "add", contextPath, values.context.trim()]);
+        const contextResult = await runQmdRaw([
+          "context",
+          "add",
+          contextPath,
+          values.context.trim(),
+        ]);
 
         if (!contextResult.success) {
           // Collection was added but context failed - still show partial success
@@ -111,7 +116,9 @@ export default function Command() {
               style: Toast.Style.Animated,
               title: "Starting embedding generation...",
             });
-            const embedResult = await runQmdRaw(["embed", "-c", values.name.trim()], { timeout: 300000 });
+            const embedResult = await runQmdRaw(["embed", "-c", values.name.trim()], {
+              timeout: 300_000,
+            });
             if (embedResult.success) {
               await showToast({
                 style: Toast.Style.Success,
@@ -156,52 +163,57 @@ export default function Command() {
 
   return (
     <Form
-      isLoading={isSubmitting}
       actions={
         <ActionPanel>
-          <Action.SubmitForm title="Add Collection" onSubmit={handleSubmit} icon={Icon.Plus} />
+          <Action.SubmitForm icon={Icon.Plus} onSubmit={handleSubmit} title="Add Collection" />
         </ActionPanel>
       }
+      isLoading={isSubmitting}
     >
       <Form.TextField
-        id="name"
-        title="Name"
-        placeholder="notes"
-        info="Identifier for this collection (letters, numbers, hyphens, underscores)"
         error={nameError}
-        onChange={(value) => validateName(value)}
+        id="name"
+        info="Identifier for this collection (letters, numbers, hyphens, underscores)"
         onBlur={(event) => validateName(event.target.value)}
+        onChange={(value) => validateName(value)}
+        placeholder="notes"
+        title="Name"
       />
 
       <Form.FilePicker
-        id="path"
-        title="Path"
-        info="Directory containing markdown files"
         allowMultipleSelection={false}
         canChooseDirectories={true}
         canChooseFiles={false}
         error={pathError}
+        id="path"
+        info="Directory containing markdown files"
         onChange={(value) => validatePath(value)}
+        title="Path"
       />
 
       <Form.TextArea
         id="context"
-        title="Context (Optional)"
-        placeholder="Personal notes and ideas about various topics..."
         info="Description to help improve search relevance"
+        placeholder="Personal notes and ideas about various topics..."
+        title="Context (Optional)"
       />
 
       <Form.Separator />
 
-      <Form.Checkbox id="showAdvanced" label="Show Advanced Options" value={showAdvanced} onChange={setShowAdvanced} />
+      <Form.Checkbox
+        id="showAdvanced"
+        label="Show Advanced Options"
+        onChange={setShowAdvanced}
+        value={showAdvanced}
+      />
 
       {showAdvanced && (
         <Form.TextField
-          id="mask"
-          title="Glob Mask"
-          placeholder="**/*.md"
           defaultValue="**/*.md"
+          id="mask"
           info="File pattern to index (e.g., **/*.md, docs/**/*.markdown)"
+          placeholder="**/*.md"
+          title="Glob Mask"
         />
       )}
     </Form>

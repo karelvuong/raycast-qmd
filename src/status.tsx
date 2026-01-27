@@ -1,9 +1,9 @@
-import { List, ActionPanel, Action, Icon, Color } from "@raycast/api";
+import { Action, ActionPanel, Color, Icon, List } from "@raycast/api";
 import { useCachedPromise } from "@raycast/utils";
-import { runQmdRaw, getQmdDatabasePath } from "./utils/qmd";
 import { useDependencyCheck } from "./hooks/useDependencyCheck";
-import { parseStatus, ParsedStatus } from "./utils/parsers";
 import { logger } from "./utils/logger";
+import { type ParsedStatus, parseStatus } from "./utils/parsers";
+import { getQmdDatabasePath, runQmdRaw } from "./utils/qmd";
 
 const statusLogger = logger.child("[Status]");
 
@@ -18,11 +18,16 @@ async function fetchStatus(): Promise<StatusResult> {
 
   if (result.success && result.data) {
     const parsed = parseStatus(result.data);
-    statusLogger.info("Status parsed", { collections: parsed?.collections.length });
+    statusLogger.info("Status parsed", {
+      collections: parsed?.collections.length,
+    });
     return { status: parsed };
   }
 
-  statusLogger.error("Failed to fetch status", { error: result.error, stderr: result.stderr });
+  statusLogger.error("Failed to fetch status", {
+    error: result.error,
+    stderr: result.stderr,
+  });
 
   // Extract more specific error information
   const errorMessage = result.stderr || result.error || "Unknown error";
@@ -51,8 +56,6 @@ export default function Command() {
     return (
       <List>
         <List.EmptyView
-          icon={Icon.Warning}
-          title="Dependencies Required"
           description={`Please install: ${[
             !depStatus?.bunInstalled && "Bun",
             !depStatus?.qmdInstalled && "QMD",
@@ -60,14 +63,17 @@ export default function Command() {
           ]
             .filter(Boolean)
             .join(", ")}`}
+          icon={Icon.Warning}
+          title="Dependencies Required"
         />
       </List>
     );
   }
 
-  if (!status && !isLoading) {
+  if (!(status || isLoading)) {
     // Detect specific error types for better messaging
-    const isDatabaseLocked = error?.includes("SQLITE_BUSY") || error?.includes("database is locked");
+    const isDatabaseLocked =
+      error?.includes("SQLITE_BUSY") || error?.includes("database is locked");
     const isEmbedRunning = error?.includes("embed") || error?.includes("embedding");
 
     let title = "Unable to Load Status";
@@ -83,15 +89,15 @@ export default function Command() {
     return (
       <List>
         <List.EmptyView
-          icon={isDatabaseLocked ? Icon.Clock : Icon.XMarkCircle}
-          title={title}
-          description={description}
           actions={
             <ActionPanel>
-              <Action title="Retry" icon={Icon.ArrowClockwise} onAction={revalidate} />
-              {error && <Action.CopyToClipboard title="Copy Error Details" content={error} />}
+              <Action icon={Icon.ArrowClockwise} onAction={revalidate} title="Retry" />
+              {error && <Action.CopyToClipboard content={error} title="Copy Error Details" />}
             </ActionPanel>
           }
+          description={description}
+          icon={isDatabaseLocked ? Icon.Clock : Icon.XMarkCircle}
+          title={title}
         />
       </List>
     );
@@ -114,33 +120,33 @@ export default function Command() {
       {/* Index Overview */}
       <List.Section title="Index">
         <List.Item
-          title="Status"
-          icon={healthIcon}
           accessories={[{ text: healthText }]}
           actions={
             <ActionPanel>
-              <Action title="Refresh" icon={Icon.ArrowClockwise} onAction={revalidate} />
+              <Action icon={Icon.ArrowClockwise} onAction={revalidate} title="Refresh" />
             </ActionPanel>
           }
+          icon={healthIcon}
+          title="Status"
         />
         <List.Item
-          title="Database"
-          icon={Icon.HardDrive}
-          subtitle={status?.databasePath}
           accessories={[{ text: status?.databaseSize }]}
           actions={
             <ActionPanel>
               <Action.ShowInFinder path={getQmdDatabasePath()} title="Show in Finder" />
-              <Action.CopyToClipboard title="Copy Path" content={getQmdDatabasePath()} />
-              <Action title="Refresh" icon={Icon.ArrowClockwise} onAction={revalidate} />
+              <Action.CopyToClipboard content={getQmdDatabasePath()} title="Copy Path" />
+              <Action icon={Icon.ArrowClockwise} onAction={revalidate} title="Refresh" />
             </ActionPanel>
           }
+          icon={Icon.HardDrive}
+          subtitle={status?.databasePath}
+          title="Database"
         />
         {status?.lastUpdated && (
           <List.Item
-            title="Last Updated"
-            icon={Icon.Clock}
             accessories={[{ text: status.lastUpdated }]}
+            icon={Icon.Clock}
+            title="Last Updated"
           />
         )}
       </List.Section>
@@ -148,13 +154,11 @@ export default function Command() {
       {/* Documents */}
       <List.Section title="Documents">
         <List.Item
-          title="Total Files"
-          icon={Icon.Document}
           accessories={[{ text: `${status?.totalDocuments ?? 0}` }]}
+          icon={Icon.Document}
+          title="Total Files"
         />
         <List.Item
-          title="Embedded"
-          icon={Icon.Stars}
           accessories={[
             {
               text: `${status?.embeddedDocuments ?? 0}`,
@@ -164,12 +168,14 @@ export default function Command() {
                   : undefined,
             },
           ]}
+          icon={Icon.Stars}
+          title="Embedded"
         />
         {(status?.pendingEmbeddings ?? 0) > 0 && (
           <List.Item
-            title="Pending Embeddings"
-            icon={{ source: Icon.Clock, tintColor: Color.Yellow }}
             accessories={[{ text: `${status?.pendingEmbeddings}` }]}
+            icon={{ source: Icon.Clock, tintColor: Color.Yellow }}
+            title="Pending Embeddings"
           />
         )}
       </List.Section>
@@ -178,22 +184,25 @@ export default function Command() {
       <List.Section title={`Collections (${status?.collections.length ?? 0})`}>
         {status?.collections.map((collection) => (
           <List.Item
-            key={collection.name}
-            title={collection.name}
-            icon={Icon.Folder}
-            subtitle={collection.pattern}
             accessories={[
               { text: `${collection.documentCount} files` },
               collection.lastUpdated ? { text: collection.lastUpdated, icon: Icon.Clock } : {},
               collection.contexts.length > 0
-                ? { text: `${collection.contexts.length} contexts`, icon: Icon.Text }
+                ? {
+                    text: `${collection.contexts.length} contexts`,
+                    icon: Icon.Text,
+                  }
                 : {},
             ].filter((a) => Object.keys(a).length > 0)}
             actions={
               <ActionPanel>
-                <Action title="Refresh" icon={Icon.ArrowClockwise} onAction={revalidate} />
+                <Action icon={Icon.ArrowClockwise} onAction={revalidate} title="Refresh" />
               </ActionPanel>
             }
+            icon={Icon.Folder}
+            key={collection.name}
+            subtitle={collection.pattern}
+            title={collection.name}
           />
         ))}
       </List.Section>

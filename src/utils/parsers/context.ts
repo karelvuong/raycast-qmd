@@ -1,4 +1,4 @@
-import { QmdContext } from "../../types";
+import type { QmdContext } from "../../types";
 
 /**
  * Parse context list text output into structured data
@@ -38,7 +38,7 @@ export function parseContextList(output: string): QmdContext[] {
     const pathWithoutAnnotation = line.match(/^\s{2}(\S+)$/);
 
     if ((pathWithAnnotation || pathWithoutAnnotation) && currentCollection) {
-      const rawPath = (pathWithAnnotation?.[1] || pathWithoutAnnotation?.[1]) || null;
+      const rawPath = pathWithAnnotation?.[1] || pathWithoutAnnotation?.[1] || null;
       currentPath = rawPath;
       continue;
     }

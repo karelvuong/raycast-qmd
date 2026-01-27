@@ -1,10 +1,10 @@
-import { useEffect, useRef } from "react";
-import { confirmAlert, showToast, Toast, open } from "@raycast/api";
+import { platform } from "node:os";
+import { confirmAlert, open, showToast, Toast } from "@raycast/api";
 import { useCachedPromise } from "@raycast/utils";
-import { platform } from "os";
-import { DependencyStatus } from "../types";
-import { checkAllDependencies, installQmd, installSqlite } from "../utils/qmd";
+import { useEffect, useRef } from "react";
+import type { DependencyStatus } from "../types";
 import { depsLogger } from "../utils/logger";
+import { checkAllDependencies, installQmd, installSqlite } from "../utils/qmd";
 
 interface UseDependencyCheckResult {
   isLoading: boolean;
@@ -31,14 +31,16 @@ export function useDependencyCheck(): UseDependencyCheckResult {
     keepPreviousData: true,
   });
 
-  const isReady = Boolean(
-    status?.bunInstalled && status?.qmdInstalled && status?.sqliteInstalled
-  );
+  const isReady = Boolean(status?.bunInstalled && status?.qmdInstalled && status?.sqliteInstalled);
 
   // Show prompts for missing deps (only once per session)
   useEffect(() => {
-    if (isLoading || !status || promptShownRef.current) return;
-    if (isReady) return; // All deps installed, no prompts needed
+    if (isLoading || !status || promptShownRef.current) {
+      return;
+    }
+    if (isReady) {
+      return; // All deps installed, no prompts needed
+    }
 
     promptShownRef.current = true;
 

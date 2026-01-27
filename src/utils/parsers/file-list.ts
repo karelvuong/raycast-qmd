@@ -1,4 +1,4 @@
-import { QmdFileListItem } from "../../types";
+import type { QmdFileListItem } from "../../types";
 
 /**
  * Parse file list text output into structured data
@@ -10,7 +10,9 @@ export function parseFileList(output: string): QmdFileListItem[] {
   const lines = output.split("\n");
 
   for (const line of lines) {
-    if (!line.trim()) continue;
+    if (!line.trim()) {
+      continue;
+    }
 
     // Match: size date path
     // e.g., "   209 B  Jan  1 13:30  qmd://obsidian/1-commonplace/canada-needs-school-choice.md"

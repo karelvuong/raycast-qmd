@@ -1,9 +1,9 @@
+import { Action, ActionPanel, Detail, Icon, List } from "@raycast/api";
 import { useState } from "react";
-import { List, ActionPanel, Action, Icon, Detail } from "@raycast/api";
-import { QmdGetResult } from "./types";
-import { runQmdRaw } from "./utils/qmd";
-import { parseGetDocument } from "./utils/parsers";
 import { useDependencyCheck } from "./hooks/useDependencyCheck";
+import type { QmdGetResult } from "./types";
+import { parseGetDocument } from "./utils/parsers";
+import { runQmdRaw } from "./utils/qmd";
 
 export default function Command() {
   const { isLoading: isDepsLoading, isReady } = useDependencyCheck();
@@ -56,9 +56,9 @@ export default function Command() {
     return (
       <List>
         <List.EmptyView
+          description="Please install the required dependencies to use QMD"
           icon={Icon.Warning}
           title="Dependencies Required"
-          description="Please install the required dependencies to use QMD"
         />
       </List>
     );
@@ -68,71 +68,81 @@ export default function Command() {
   if (result) {
     return (
       <Detail
-        markdown={`# ${result.title || result.path}\n\n${result.content}`}
-        navigationTitle={result.title || result.path}
-        metadata={
-          <Detail.Metadata>
-            {result.path && <Detail.Metadata.Label title="Path" text={result.path} />}
-            {result.docid && <Detail.Metadata.Label title="DocID" text={`#${result.docid}`} />}
-            {result.collection && <Detail.Metadata.Label title="Collection" text={result.collection} />}
-          </Detail.Metadata>
-        }
         actions={
           <ActionPanel>
-            <Action.CopyToClipboard title="Copy Content" content={result.content} />
+            <Action.CopyToClipboard content={result.content} title="Copy Content" />
             {result.path && (
               <Action.CopyToClipboard
-                title="Copy Path"
                 content={result.path}
                 shortcut={{ modifiers: ["cmd"], key: "c" }}
+                title="Copy Path"
               />
             )}
             {result.docid && (
               <Action.CopyToClipboard
-                title="Copy DocID"
                 content={`#${result.docid}`}
                 shortcut={{ modifiers: ["cmd", "shift"], key: "c" }}
+                title="Copy DocID"
               />
             )}
             <Action
-              title="Back to Search"
               icon={Icon.ArrowLeft}
               onAction={() => {
                 setResult(null);
                 setSearchText("");
               }}
+              title="Back to Search"
             />
           </ActionPanel>
         }
+        markdown={`# ${result.title || result.path}\n\n${result.content}`}
+        metadata={
+          <Detail.Metadata>
+            {result.path && <Detail.Metadata.Label text={result.path} title="Path" />}
+            {result.docid && <Detail.Metadata.Label text={`#${result.docid}`} title="DocID" />}
+            {result.collection && (
+              <Detail.Metadata.Label text={result.collection} title="Collection" />
+            )}
+          </Detail.Metadata>
+        }
+        navigationTitle={result.title || result.path}
       />
     );
   }
 
   return (
     <List
-      isLoading={isLoading}
-      searchBarPlaceholder="Enter path or #docid..."
-      searchText={searchText}
-      onSearchTextChange={setSearchText}
       actions={
         <ActionPanel>
-          <Action title="Get Document" icon={Icon.Document} onAction={() => fetchDocument(searchText)} />
+          <Action
+            icon={Icon.Document}
+            onAction={() => fetchDocument(searchText)}
+            title="Get Document"
+          />
         </ActionPanel>
       }
+      isLoading={isLoading}
+      onSearchTextChange={setSearchText}
+      searchBarPlaceholder="Enter path or #docid..."
+      searchText={searchText}
     >
       {/* Show suggestions if we have them */}
       {suggestions.length > 0 && (
         <List.Section title="Did you mean?">
           {suggestions.map((suggestion, index) => (
             <List.Item
-              key={index}
-              title={suggestion}
-              icon={Icon.Document}
               actions={
                 <ActionPanel>
-                  <Action title="Select" icon={Icon.Document} onAction={() => handleSelect(suggestion)} />
+                  <Action
+                    icon={Icon.Document}
+                    onAction={() => handleSelect(suggestion)}
+                    title="Select"
+                  />
                 </ActionPanel>
               }
+              icon={Icon.Document}
+              key={index}
+              title={suggestion}
             />
           ))}
         </List.Section>
@@ -140,29 +150,33 @@ export default function Command() {
 
       {/* Show error if we have one */}
       {error && !suggestions.length && searchText && (
-        <List.EmptyView icon={Icon.Warning} title="Document Not Found" description={error} />
+        <List.EmptyView description={error} icon={Icon.Warning} title="Document Not Found" />
       )}
 
       {/* Initial state - show instructions */}
-      {!searchText && !suggestions.length && (
+      {!(searchText || suggestions.length) && (
         <List.EmptyView
+          description="Enter a file path or #docid to retrieve a document"
           icon={Icon.Document}
           title="Get Document"
-          description="Enter a file path or #docid to retrieve a document"
         />
       )}
 
       {/* Searching state */}
       {searchText && !suggestions.length && !error && !isLoading && (
         <List.EmptyView
-          icon={Icon.MagnifyingGlass}
-          title="Press Enter to Search"
-          description={`Search for: ${searchText}`}
           actions={
             <ActionPanel>
-              <Action title="Get Document" icon={Icon.Document} onAction={() => fetchDocument(searchText)} />
+              <Action
+                icon={Icon.Document}
+                onAction={() => fetchDocument(searchText)}
+                title="Get Document"
+              />
             </ActionPanel>
           }
+          description={`Search for: ${searchText}`}
+          icon={Icon.MagnifyingGlass}
+          title="Press Enter to Search"
         />
       )}
     </List>

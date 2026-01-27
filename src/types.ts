@@ -69,6 +69,12 @@ export interface QmdFileListItem {
 // Extension Types
 export type SearchMode = "search" | "vsearch" | "query";
 
+export interface SearchOptions {
+  showFullDocument: boolean;
+  showLineNumbers: boolean;
+  showAllResults: boolean;
+}
+
 export interface SearchHistoryItem {
   query: string;
   mode: SearchMode;
