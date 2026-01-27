@@ -283,12 +283,13 @@ export function SearchView({ searchMode }: SearchViewProps) {
       case "search":
         return {
           title: "No Matches Found",
-          description: "No exact keyword matches. Try Semantic Search for meaning-based results.",
+          description: "No BM25 keyword matches. Try Semantic Search for meaning-based results.",
         };
       case "vsearch":
         return {
           title: "No Semantic Matches",
-          description: "Try different phrasing or Hybrid Search which combines keywords with semantic matching.",
+          description:
+            "Try different phrasing or Hybrid Search which combines keywords with semantic matching.",
         };
       case "query":
         return {
@@ -442,7 +443,15 @@ export function SearchView({ searchMode }: SearchViewProps) {
       {!searchText.trim() && (
         <>
           {history.length > 0 && (
-            <List.Section title="Recent Searches">
+            <List.Section
+              title={
+                searchMode === "search"
+                  ? "Recent Keyword Searches"
+                  : searchMode === "vsearch"
+                    ? "Recent Semantic Searches"
+                    : "Recent Hybrid Searches"
+              }
+            >
               {history.map((item) => (
                 <List.Item
                   accessories={[{ text: new Date(item.timestamp).toLocaleDateString() }]}
@@ -470,7 +479,6 @@ export function SearchView({ searchMode }: SearchViewProps) {
                   }
                   icon={Icon.Clock}
                   key={`${item.query}-${item.timestamp}`}
-                  subtitle={item.mode}
                   title={item.query}
                 />
               ))}

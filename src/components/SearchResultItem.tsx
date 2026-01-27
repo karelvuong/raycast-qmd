@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { Action, ActionPanel, Color, Icon, List, showToast, Toast } from "@raycast/api";
+import { Action, ActionPanel, Clipboard, Color, Icon, List, showToast, Toast } from "@raycast/api";
 import type { QmdGetResult, QmdSearchResult } from "../types";
 import { formatScorePercentage, getScoreColor, runQmd } from "../utils/qmd";
 
@@ -100,7 +100,7 @@ ${result.snippet || ""}
                 const getResult = await runQmd<QmdGetResult>(["get", `#${result.docid}`, "--full"]);
 
                 if (getResult.success && getResult.data) {
-                  await navigator.clipboard.writeText(getResult.data.content);
+                  await Clipboard.copy(getResult.data.content);
                   toast.style = Toast.Style.Success;
                   toast.title = "Content copied";
                 } else {
