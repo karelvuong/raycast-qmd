@@ -5,6 +5,7 @@ import { Logger } from "@chrismessina/raycast-logger";
  */
 export const logger = new Logger({
   prefix: "[QMD]",
+  colorize: false,
 });
 
 /**
