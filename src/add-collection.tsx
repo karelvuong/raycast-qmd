@@ -5,7 +5,7 @@ import { runQmdRaw, validateCollectionPath, expandPath } from "./utils/qmd";
 
 interface FormValues {
   name: string;
-  path: string;
+  path: string[];
   context: string;
   showAdvanced: boolean;
   mask: string;
@@ -19,12 +19,12 @@ export default function Command() {
   const [nameError, setNameError] = useState<string | undefined>();
   const { pop } = useNavigation();
 
-  const validatePath = (value: string | undefined) => {
-    if (!value) {
+  const validatePath = (value: string[] | undefined) => {
+    if (!value || value.length === 0) {
       setPathError("Path is required");
       return false;
     }
-    if (!validateCollectionPath(value)) {
+    if (!validateCollectionPath(value[0])) {
       setPathError("Directory does not exist");
       return false;
     }
@@ -58,7 +58,8 @@ export default function Command() {
 
     try {
       // Build the add command
-      const addArgs = ["collection", "add", expandPath(values.path), "--name", values.name.trim()];
+      const selectedPath = values.path[0];
+      const addArgs = ["collection", "add", expandPath(selectedPath), "--name", values.name.trim()];
 
       // Add custom mask if different from default
       if (values.mask && values.mask !== "**/*.md") {
@@ -172,14 +173,15 @@ export default function Command() {
         onBlur={(event) => validateName(event.target.value)}
       />
 
-      <Form.TextField
+      <Form.FilePicker
         id="path"
         title="Path"
-        placeholder="~/Documents/notes"
         info="Directory containing markdown files"
+        allowMultipleSelection={false}
+        canChooseDirectories={true}
+        canChooseFiles={false}
         error={pathError}
         onChange={(value) => validatePath(value)}
-        onBlur={(event) => validatePath(event.target.value)}
       />
 
       <Form.TextArea
