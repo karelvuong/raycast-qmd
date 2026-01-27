@@ -16,6 +16,7 @@ import {
 import { QmdContext } from "./types";
 import { runQmdRaw, getContexts } from "./utils/qmd";
 import { useDependencyCheck } from "./hooks/useDependencyCheck";
+import { contextsLogger } from "./utils/logger";
 
 export default function Command() {
   const { isLoading: isDepsLoading, isReady } = useDependencyCheck();
@@ -25,12 +26,15 @@ export default function Command() {
   const loadContexts = async () => {
     if (!isReady) return;
 
+    contextsLogger.info("Loading contexts");
     setIsLoading(true);
     const result = await getContexts();
 
     if (result.success && result.data) {
       setContexts(result.data);
+      contextsLogger.info("Contexts loaded", { count: result.data.length });
     } else {
+      contextsLogger.warn("Failed to load contexts", { error: result.error });
       setContexts([]);
     }
     setIsLoading(false);
@@ -123,6 +127,7 @@ function ContextItem({ context, onRefresh }: ContextItemProps) {
 
     if (!confirmed) return;
 
+    contextsLogger.info("Removing context", { path: context.path });
     const toast = await showToast({
       style: Toast.Style.Animated,
       title: "Removing context...",
@@ -131,10 +136,12 @@ function ContextItem({ context, onRefresh }: ContextItemProps) {
     const result = await runQmdRaw(["context", "rm", context.path]);
 
     if (result.success) {
+      contextsLogger.info("Context removed", { path: context.path });
       toast.style = Toast.Style.Success;
       toast.title = "Context removed";
       await onRefresh();
     } else {
+      contextsLogger.error("Remove failed", { path: context.path, error: result.error });
       toast.style = Toast.Style.Failure;
       toast.title = "Remove failed";
       toast.message = result.error;
@@ -210,6 +217,7 @@ function EditContextForm({ context, onEdit }: EditContextFormProps) {
       return;
     }
 
+    contextsLogger.info("Updating context", { path: context.path });
     setIsSubmitting(true);
     const toast = await showToast({
       style: Toast.Style.Animated,
@@ -220,6 +228,7 @@ function EditContextForm({ context, onEdit }: EditContextFormProps) {
     const removeResult = await runQmdRaw(["context", "rm", context.path]);
 
     if (!removeResult.success) {
+      contextsLogger.error("Failed to remove context during update", { error: removeResult.error });
       toast.style = Toast.Style.Failure;
       toast.title = "Failed to update context";
       toast.message = removeResult.error;
@@ -230,11 +239,13 @@ function EditContextForm({ context, onEdit }: EditContextFormProps) {
     const addResult = await runQmdRaw(["context", "add", context.path, values.description.trim()]);
 
     if (addResult.success) {
+      contextsLogger.info("Context updated", { path: context.path });
       toast.style = Toast.Style.Success;
       toast.title = "Context updated";
       await onEdit();
       pop();
     } else {
+      contextsLogger.error("Failed to add context during update", { error: addResult.error });
       toast.style = Toast.Style.Failure;
       toast.title = "Failed to update context";
       toast.message = addResult.error;
@@ -255,6 +266,7 @@ function EditContextForm({ context, onEdit }: EditContextFormProps) {
 
     if (!confirmed) return;
 
+    contextsLogger.info("Removing context from edit form", { path: context.path });
     setIsSubmitting(true);
     const toast = await showToast({
       style: Toast.Style.Animated,
@@ -264,11 +276,13 @@ function EditContextForm({ context, onEdit }: EditContextFormProps) {
     const result = await runQmdRaw(["context", "rm", context.path]);
 
     if (result.success) {
+      contextsLogger.info("Context removed", { path: context.path });
       toast.style = Toast.Style.Success;
       toast.title = "Context removed";
       await onEdit();
       pop();
     } else {
+      contextsLogger.error("Remove failed", { path: context.path, error: result.error });
       toast.style = Toast.Style.Failure;
       toast.title = "Remove failed";
       toast.message = result.error;

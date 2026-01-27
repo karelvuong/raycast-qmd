@@ -6,28 +6,41 @@ import { QmdGetResult } from "../../types";
  * The output format is just the plain text content of the document.
  * We need to extract metadata from the path and create a structured result.
  */
-export function parseGetDocument(output: string, queryPath: string): QmdGetResult {
-  // Extract collection name from qmd:// path if present
-  let collection = "";
-  let path = queryPath;
+export function parseGetDocument(output: string, query: string): QmdGetResult {
+  const content = output.trim();
 
-  if (queryPath.startsWith("qmd://")) {
-    const pathParts = queryPath.slice(6).split("/");
+  // Check if query is a docid (starts with #)
+  const isDocId = query.startsWith("#");
+
+  if (isDocId) {
+    // Query is a docid - we don't know the path
+    const docid = query.slice(1); // Remove the # prefix
+    return {
+      path: "",
+      docid,
+      content,
+      title: `Document ${query}`,
+      collection: "",
+    };
+  }
+
+  // Query is a path
+  let collection = "";
+  let path = query;
+
+  if (query.startsWith("qmd://")) {
+    const pathParts = query.slice(6).split("/");
     collection = pathParts[0] || "";
-    path = queryPath;
   }
 
   // Extract filename for title
-  const pathSegments = queryPath.split("/");
-  const filename = pathSegments[pathSegments.length - 1] || queryPath;
+  const pathSegments = query.split("/");
+  const filename = pathSegments[pathSegments.length - 1] || query;
   const title = filename.replace(/\.md$/, "");
-
-  // The output is just the document content
-  const content = output.trim();
 
   return {
     path,
-    docid: "", // qmd get doesn't return docid in plain text mode
+    docid: "",
     content,
     title,
     collection,

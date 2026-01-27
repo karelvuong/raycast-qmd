@@ -72,24 +72,28 @@ export default function Command() {
         navigationTitle={result.title || result.path}
         metadata={
           <Detail.Metadata>
-            <Detail.Metadata.Label title="Path" text={result.path} />
-            <Detail.Metadata.Label title="DocID" text={`#${result.docid}`} />
-            <Detail.Metadata.Label title="Collection" text={result.collection} />
+            {result.path && <Detail.Metadata.Label title="Path" text={result.path} />}
+            {result.docid && <Detail.Metadata.Label title="DocID" text={`#${result.docid}`} />}
+            {result.collection && <Detail.Metadata.Label title="Collection" text={result.collection} />}
           </Detail.Metadata>
         }
         actions={
           <ActionPanel>
             <Action.CopyToClipboard title="Copy Content" content={result.content} />
-            <Action.CopyToClipboard
-              title="Copy Path"
-              content={result.path}
-              shortcut={{ modifiers: ["cmd"], key: "c" }}
-            />
-            <Action.CopyToClipboard
-              title="Copy DocID"
-              content={`#${result.docid}`}
-              shortcut={{ modifiers: ["cmd", "shift"], key: "c" }}
-            />
+            {result.path && (
+              <Action.CopyToClipboard
+                title="Copy Path"
+                content={result.path}
+                shortcut={{ modifiers: ["cmd"], key: "c" }}
+              />
+            )}
+            {result.docid && (
+              <Action.CopyToClipboard
+                title="Copy DocID"
+                content={`#${result.docid}`}
+                shortcut={{ modifiers: ["cmd", "shift"], key: "c" }}
+              />
+            )}
             <Action
               title="Back to Search"
               icon={Icon.ArrowLeft}

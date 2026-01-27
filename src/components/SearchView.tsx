@@ -42,7 +42,6 @@ export function SearchView({ searchMode }: SearchViewProps) {
   const [selectedCollection, setSelectedCollection] = useState<string>("all");
   const [isSearching, setIsSearching] = useState(false);
   const [collectionsLoading, setCollectionsLoading] = useState(true);
-  const [collectionPaths, setCollectionPaths] = useState<Record<string, string>>({});
   const [showDetail, setShowDetail] = useCachedState("showSearchDetail", true);
   const [pendingSearch, setPendingSearch] = useState(false); // For expensive search modes
   const [isDebouncing, setIsDebouncing] = useState(false); // Track debounce period for keyword search
@@ -63,8 +62,6 @@ export function SearchView({ searchMode }: SearchViewProps) {
 
       // Get collection paths from qmd config file
       const paths = getCollectionPaths();
-      console.log("[SearchView] Collection paths from config:", paths);
-      setCollectionPaths(paths);
 
       const result = await getCollections();
       if (result.success && result.data) {
@@ -162,10 +159,16 @@ export function SearchView({ searchMode }: SearchViewProps) {
   const onSearchTextChange = (text: string) => {
     setSearchText(text);
     // For expensive searches, mark as pending (user must press Enter)
-    if (isExpensiveSearch(searchMode) && text.trim()) {
-      setPendingSearch(true);
+    if (isExpensiveSearch(searchMode)) {
+      if (text.trim()) {
+        setPendingSearch(true);
+        setResults([]); // Clear previous results
+      } else {
+        // Don't allow empty searches for expensive modes
+        setPendingSearch(false);
+        setResults([]);
+      }
       setIsDebouncing(false);
-      setResults([]); // Clear previous results
     } else if (text.trim()) {
       // For keyword search, mark as debouncing while waiting
       setIsDebouncing(true);
@@ -344,7 +347,6 @@ export function SearchView({ searchMode }: SearchViewProps) {
             <SearchResultItem
               key={`${result.collection || "unknown"}-${result.docid}-${index}`}
               result={result}
-              collectionPath={collectionPaths[result.collection]}
               showDetail={showDetail}
               onToggleDetail={() => setShowDetail(!showDetail)}
             />

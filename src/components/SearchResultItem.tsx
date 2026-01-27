@@ -1,68 +1,16 @@
-import { Action, ActionPanel, Color, Icon, List, showToast, Toast, open } from "@raycast/api";
-import { existsSync } from "fs";
-import { join, dirname, basename } from "path";
+import { Action, ActionPanel, Color, Icon, List, showToast, Toast } from "@raycast/api";
 import { QmdSearchResult, QmdGetResult } from "../types";
-import { getScoreColor, formatScorePercentage, runQmd, expandPath } from "../utils/qmd";
+import { getScoreColor, formatScorePercentage, runQmd } from "../utils/qmd";
 
 interface SearchResultItemProps {
   result: QmdSearchResult;
-  collectionPath?: string;
   showDetail?: boolean;
   onToggleDetail?: () => void;
 }
 
-/**
- * Detect if a path is inside an Obsidian vault and return vault info
- */
-function detectObsidianVault(fullPath: string): { isObsidian: boolean; vaultName?: string; relativePath?: string } {
-  if (!fullPath) return { isObsidian: false };
-
-  // Walk up the directory tree looking for .obsidian folder
-  let currentDir = dirname(fullPath);
-  const maxDepth = 20; // Prevent infinite loops
-  let depth = 0;
-
-  while (currentDir && currentDir !== "/" && depth < maxDepth) {
-    const obsidianDir = join(currentDir, ".obsidian");
-    if (existsSync(obsidianDir)) {
-      // Found the vault root
-      const vaultName = basename(currentDir);
-      // Get the relative path from vault root (without leading slash)
-      const relativePath = fullPath.substring(currentDir.length + 1);
-      return { isObsidian: true, vaultName, relativePath };
-    }
-    currentDir = dirname(currentDir);
-    depth++;
-  }
-
-  return { isObsidian: false };
-}
-
-/**
- * Build Obsidian deep link URL
- */
-function buildObsidianUrl(vaultName: string, relativePath: string): string {
-  // Remove .md extension for Obsidian links
-  const pathWithoutExt = relativePath.replace(/\.md$/, "");
-  return `obsidian://open?vault=${encodeURIComponent(vaultName)}&file=${encodeURIComponent(pathWithoutExt)}`;
-}
-
-export function SearchResultItem({ result, collectionPath, showDetail, onToggleDetail }: SearchResultItemProps) {
-  // Compute full path if we have the collection path and relative path
-  const relativePath = result.path;
-  const fullPath = collectionPath && relativePath
-    ? join(expandPath(collectionPath), relativePath)
-    : result.fullPath;
-
-  // Note: We don't check file existence because qmd normalizes paths
-  // (e.g., "3. Logs" becomes "3-logs") and we can't reliably resolve them
-  const fileExists = true; // Trust that qmd found valid files
-
+export function SearchResultItem({ result, showDetail, onToggleDetail }: SearchResultItemProps) {
   // Display path - use relative path or extract from file URL
-  const displayPath = relativePath || result.file || "Unknown";
-
-  // Check for Obsidian vault
-  const obsidian = fullPath ? detectObsidianVault(fullPath) : { isObsidian: false };
+  const displayPath = result.path || result.file || "Unknown";
 
   const scoreColor = getScoreColor(result.score);
   const scorePercentage = formatScorePercentage(result.score);
@@ -73,10 +21,6 @@ export function SearchResultItem({ result, collectionPath, showDetail, onToggleD
   const accessories: List.Item.Accessory[] = [
     { tag: { value: scorePercentage, color: tagColor } },
   ];
-
-  if (!fileExists) {
-    accessories.unshift({ icon: { source: Icon.Warning, tintColor: Color.Orange }, tooltip: "File not found" });
-  }
 
   // Build detail markdown with full snippet (including @@ context)
   const detailMarkdown = `# ${result.title || displayPath}
@@ -99,53 +43,15 @@ ${result.snippet || ""}
     <List.Item
       title={result.title || displayPath}
       accessories={accessories}
-      icon={obsidian.isObsidian ? Icon.Book : fileExists ? Icon.Document : Icon.Warning}
+      icon={Icon.Document}
       detail={<List.Item.Detail markdown={detailMarkdown} />}
       actions={
         <ActionPanel>
-          <ActionPanel.Section title="Open">
-            {/* Primary action: Open in Obsidian if it's a vault, otherwise default editor */}
-            {obsidian.isObsidian && obsidian.vaultName && obsidian.relativePath && (
-              <Action
-                title="Open in Obsidian"
-                icon={Icon.Book}
-                onAction={async () => {
-                  const url = buildObsidianUrl(obsidian.vaultName!, obsidian.relativePath!);
-                  await open(url);
-                }}
-              />
-            )}
-            {fullPath && fileExists && (
-              <Action
-                title="Open in Editor"
-                icon={Icon.AppWindow}
-                shortcut={obsidian.isObsidian ? { modifiers: ["cmd"], key: "e" } : undefined}
-                onAction={async () => {
-                  // Try VS Code first with line number
-                  const lineArg = result.line ? `:${result.line}` : "";
-                  try {
-                    await open(`vscode://file${fullPath}${lineArg}`);
-                  } catch {
-                    // Fall back to system default
-                    await open(fullPath);
-                  }
-                }}
-              />
-            )}
-            {fullPath && fileExists && <Action.ShowInFinder path={fullPath} />}
-          </ActionPanel.Section>
           <ActionPanel.Section title="Copy">
-            {fullPath && (
-              <Action.CopyToClipboard
-                title="Copy Path"
-                content={fullPath}
-                shortcut={{ modifiers: ["cmd"], key: "c" }}
-              />
-            )}
             <Action
               title="Copy Content"
               icon={Icon.Clipboard}
-              shortcut={{ modifiers: ["cmd", "shift"], key: "c" }}
+              shortcut={{ modifiers: ["cmd"], key: "c" }}
               onAction={async () => {
                 const toast = await showToast({
                   style: Toast.Style.Animated,
@@ -168,7 +74,7 @@ ${result.snippet || ""}
             <Action.CopyToClipboard
               title="Copy DocID"
               content={result.docid}
-              shortcut={{ modifiers: ["cmd", "opt"], key: "c" }}
+              shortcut={{ modifiers: ["cmd", "shift"], key: "c" }}
             />
           </ActionPanel.Section>
           <ActionPanel.Section>
