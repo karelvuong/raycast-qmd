@@ -1,4 +1,4 @@
-import { exec, ChildProcess, spawn } from "child_process";
+import { exec } from "child_process";
 import { promisify } from "util";
 import { existsSync } from "fs";
 import { homedir, platform } from "os";
@@ -9,7 +9,7 @@ import { parseCollectionList, parseContextList, parseFileList } from "./parsers"
 const execAsync = promisify(exec);
 
 // Active embed process tracking
-let activeEmbedProcess: ChildProcess | null = null;
+let isEmbedProcessRunning = false;
 
 // ============================================================================
 // Path & Environment Utilities
@@ -226,15 +226,20 @@ export async function runQmdRaw(args: string[], options: { timeout?: number } = 
 
   try {
     const command = buildQmdShellCommand(args);
+    console.log("[QMD] runQmdRaw executing:", command);
 
     const { stdout, stderr } = await execAsync(command, {
       timeout,
       maxBuffer: 10 * 1024 * 1024,
     });
 
+    console.log("[QMD] runQmdRaw stdout:", stdout.substring(0, 200));
+    console.log("[QMD] runQmdRaw stderr:", stderr);
+
     return { success: true, data: stdout, stderr: stderr || undefined };
   } catch (error) {
     const execError = error as { stderr?: string; message?: string };
+    console.log("[QMD] runQmdRaw error:", execError.message);
     return {
       success: false,
       error: execError.message || "Command execution failed",
@@ -294,79 +299,71 @@ export async function getCollectionFiles(collectionName: string): Promise<QmdRes
 // ============================================================================
 
 /**
- * Start background embedding process
+ * Run embedding process (async)
  */
-export function startBackgroundEmbed(
-  onProgress?: (message: string) => void,
-  onComplete?: (success: boolean, error?: string) => void,
-  collectionName?: string,
-): () => void {
-  if (activeEmbedProcess) {
-    onComplete?.(false, "Embedding process already running");
-    return () => {};
-  }
-
+export async function runEmbed(collectionName?: string): Promise<QmdResult<string>> {
   const args = ["embed"];
   if (collectionName) {
     args.push("-c", collectionName);
   }
 
-  const command = buildQmdShellCommand(args);
-  activeEmbedProcess = spawn("sh", ["-c", command], {
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  return await runQmdRaw(args, { timeout: 300000 }); // 5 minute timeout
+}
 
-  let stderr = "";
+/**
+ * Start background embedding process
+ */
+export function startBackgroundEmbed(
+  onProgress?: (message: string) => void,
+  onComplete?: (success: boolean, error?: string, output?: string) => void,
+  collectionName?: string,
+): void {
+  if (isEmbedProcessRunning) {
+    onComplete?.(false, "Embedding process already running");
+    return;
+  }
 
-  activeEmbedProcess.stdout?.on("data", (data: Buffer) => {
-    const message = data.toString().trim();
-    if (message) {
-      onProgress?.(message);
-    }
-  });
+  isEmbedProcessRunning = true;
+  console.log("[QMD] Starting background embed");
 
-  activeEmbedProcess.stderr?.on("data", (data: Buffer) => {
-    stderr += data.toString();
-    const message = data.toString().trim();
-    if (message) {
-      onProgress?.(message);
-    }
-  });
+  // Run the embed command
+  runEmbed(collectionName)
+    .then((result) => {
+      console.log("[QMD] Embed completed", { success: result.success, data: result.data?.substring(0, 200) });
+      isEmbedProcessRunning = false;
 
-  activeEmbedProcess.on("close", (code) => {
-    activeEmbedProcess = null;
-    if (code === 0) {
-      onComplete?.(true);
-    } else {
-      onComplete?.(false, stderr || `Process exited with code ${code}`);
-    }
-  });
-
-  activeEmbedProcess.on("error", (error) => {
-    activeEmbedProcess = null;
-    onComplete?.(false, error.message);
-  });
-
-  // Return cancel function
-  return () => {
-    cancelActiveEmbed();
-  };
+      if (result.success) {
+        const output = result.data || "";
+        // Report progress if there was output
+        if (output) {
+          onProgress?.(output.trim());
+        }
+        onComplete?.(true, undefined, output.trim());
+      } else {
+        onComplete?.(false, result.error || "Unknown error", result.stderr);
+      }
+    })
+    .catch((error) => {
+      console.log("[QMD] Embed failed with exception:", error);
+      isEmbedProcessRunning = false;
+      onComplete?.(false, error.message || "Unknown error");
+    });
 }
 
 /**
  * Check if embedding is currently running
  */
 export function isEmbedRunning(): boolean {
-  return activeEmbedProcess !== null;
+  return isEmbedProcessRunning;
 }
 
 /**
  * Cancel active embedding process
  */
 export function cancelActiveEmbed(): boolean {
-  if (activeEmbedProcess) {
-    activeEmbedProcess.kill("SIGTERM");
-    activeEmbedProcess = null;
+  if (isEmbedProcessRunning) {
+    // Can't actually cancel execAsync, but we can reset the flag
+    isEmbedProcessRunning = false;
     return true;
   }
   return false;

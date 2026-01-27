@@ -1,12 +1,31 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { List, showToast, Toast, Icon, getPreferenceValues, Color, Action, ActionPanel } from "@raycast/api";
-import { useDebouncedCallback } from "use-debounce";
+import { useCachedState } from "@raycast/utils";
 import { SearchMode, QmdSearchResult, QmdCollection, ExtensionPreferences } from "../types";
 import { runQmd, getCollections, validateCollectionPath } from "../utils/qmd";
 import { useDependencyCheck } from "../hooks/useDependencyCheck";
 import { useSearchHistory } from "../hooks/useSearchHistory";
 import { useIndexingState } from "../hooks/useIndexingState";
 import { SearchResultItem } from "./SearchResultItem";
+import { searchLogger } from "../utils/logger";
+
+// Check if search mode requires explicit trigger (expensive AI operations)
+const isExpensiveSearch = (mode: SearchMode) => mode === "vsearch" || mode === "query";
+
+/**
+ * Parse qmd:// URL to extract collection and path
+ * Format: qmd://collection-name/relative/path/to/file.md
+ */
+function parseQmdUrl(file: string): { collection: string; path: string } | null {
+  if (!file?.startsWith("qmd://")) return null;
+  const withoutProtocol = file.slice(6); // Remove "qmd://"
+  const firstSlash = withoutProtocol.indexOf("/");
+  if (firstSlash === -1) return null;
+  return {
+    collection: withoutProtocol.slice(0, firstSlash),
+    path: withoutProtocol.slice(firstSlash + 1),
+  };
+}
 
 interface SearchViewProps {
   searchMode: SearchMode;
@@ -14,7 +33,7 @@ interface SearchViewProps {
 
 export function SearchView({ searchMode }: SearchViewProps) {
   const { isLoading: isDepsLoading, isReady } = useDependencyCheck();
-  const { history, addToHistory } = useSearchHistory();
+  const { history, addToHistory, clearHistory } = useSearchHistory();
   const { isIndexing } = useIndexingState();
 
   const [searchText, setSearchText] = useState("");
@@ -24,14 +43,21 @@ export function SearchView({ searchMode }: SearchViewProps) {
   const [isSearching, setIsSearching] = useState(false);
   const [collectionsLoading, setCollectionsLoading] = useState(true);
   const [collectionPaths, setCollectionPaths] = useState<Record<string, string>>({});
+  const [showDetail, setShowDetail] = useCachedState("showSearchDetail", true);
+  const [pendingSearch, setPendingSearch] = useState(false); // For expensive search modes
 
-  const preferences = getPreferenceValues<ExtensionPreferences>();
+  // Track search request to ignore stale results
+  const searchRequestId = useRef(0);
+
+  // Extract preference values once to avoid re-creating on every render
+  const { defaultResultCount, defaultMinScore } = getPreferenceValues<ExtensionPreferences>();
 
   // Load collections on mount
   useEffect(() => {
     if (!isReady) return;
 
     const loadCollections = async () => {
+      searchLogger.info("Loading collections");
       setCollectionsLoading(true);
       const result = await getCollections();
       if (result.success && result.data) {
@@ -41,6 +67,7 @@ export function SearchView({ searchMode }: SearchViewProps) {
           exists: col.path ? validateCollectionPath(col.path) : true,
         }));
         setCollections(validated);
+        searchLogger.info("Collections loaded", { count: validated.length });
 
         // Create path mapping for full path resolution
         const paths: Record<string, string> = {};
@@ -57,17 +84,23 @@ export function SearchView({ searchMode }: SearchViewProps) {
     loadCollections();
   }, [isReady]);
 
-  // Perform search
+  // Perform search with request tracking to ignore stale results
   const performSearch = useCallback(
     async (query: string) => {
       if (!query.trim() || !isReady) {
         setResults([]);
+        setPendingSearch(false);
         return;
       }
 
-      setIsSearching(true);
+      // Increment request ID to invalidate any in-flight requests
+      const currentRequestId = ++searchRequestId.current;
 
-      const args = [searchMode, query, "-n", preferences.defaultResultCount || "10"];
+      searchLogger.info("Performing search", { mode: searchMode, query, collection: selectedCollection, requestId: currentRequestId });
+      setIsSearching(true);
+      setPendingSearch(false);
+
+      const args = [searchMode, query, "-n", defaultResultCount || "10"];
 
       // Add collection filter if selected
       if (selectedCollection && selectedCollection !== "all") {
@@ -75,17 +108,34 @@ export function SearchView({ searchMode }: SearchViewProps) {
       }
 
       // Add min score if set
-      if (preferences.defaultMinScore && parseFloat(preferences.defaultMinScore) > 0) {
-        args.push("--min-score", preferences.defaultMinScore);
+      if (defaultMinScore && parseFloat(defaultMinScore) > 0) {
+        args.push("--min-score", defaultMinScore);
       }
 
       const result = await runQmd<QmdSearchResult[]>(args);
 
+      // Ignore stale results - only process if this is still the latest request
+      if (currentRequestId !== searchRequestId.current) {
+        searchLogger.info("Ignoring stale search result", { requestId: currentRequestId, latestId: searchRequestId.current });
+        return;
+      }
+
       if (result.success && result.data) {
-        setResults(result.data);
+        searchLogger.info("Search complete", { results: result.data.length });
+        // Parse qmd:// URLs to extract collection and path
+        const enrichedResults = result.data.map((r) => {
+          const parsed = parseQmdUrl(r.file);
+          return {
+            ...r,
+            collection: parsed?.collection,
+            path: parsed?.path,
+          };
+        });
+        setResults(enrichedResults);
         // Add to history
         await addToHistory(query, searchMode);
       } else {
+        searchLogger.warn("Search returned no results or failed", { error: result.error });
         setResults([]);
         if (result.error && !result.error.includes("No results")) {
           await showToast({
@@ -102,22 +152,47 @@ export function SearchView({ searchMode }: SearchViewProps) {
       isReady,
       searchMode,
       selectedCollection,
-      preferences.defaultResultCount,
-      preferences.defaultMinScore,
+      defaultResultCount,
+      defaultMinScore,
       addToHistory,
     ],
   );
 
-  // Debounced search (400ms)
-  const debouncedSearch = useDebouncedCallback((query: string) => {
-    performSearch(query);
-  }, 400);
-
   // Handle search text change
   const onSearchTextChange = (text: string) => {
     setSearchText(text);
-    debouncedSearch(text);
+    // For expensive searches, mark as pending (user must press Enter)
+    if (isExpensiveSearch(searchMode) && text.trim()) {
+      setPendingSearch(true);
+      setResults([]); // Clear previous results
+    }
   };
+
+  // Debounce search via useEffect - only for keyword search
+  useEffect(() => {
+    // Only auto-search for keyword search mode
+    if (isExpensiveSearch(searchMode)) {
+      return; // Don't auto-search for semantic/hybrid
+    }
+
+    if (!searchText.trim()) {
+      setResults([]);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      performSearch(searchText);
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [searchText, performSearch, searchMode]);
+
+  // Trigger search manually (for expensive search modes)
+  const triggerSearch = useCallback(() => {
+    if (searchText.trim()) {
+      performSearch(searchText);
+    }
+  }, [searchText, performSearch]);
 
   // Get search mode display name
   const getSearchModeTitle = () => {
@@ -129,6 +204,14 @@ export function SearchView({ searchMode }: SearchViewProps) {
       case "query":
         return "Hybrid Search";
     }
+  };
+
+  // Get search bar placeholder
+  const getPlaceholder = () => {
+    if (isExpensiveSearch(searchMode)) {
+      return `${getSearchModeTitle()} (type and press Enter)...`;
+    }
+    return `${getSearchModeTitle()} markdown files...`;
   };
 
   // Show loading state while checking dependencies
@@ -154,11 +237,10 @@ export function SearchView({ searchMode }: SearchViewProps) {
   return (
     <List
       isLoading={isLoading}
-      searchBarPlaceholder={`${getSearchModeTitle()} markdown files...`}
+      searchBarPlaceholder={getPlaceholder()}
       searchText={searchText}
       onSearchTextChange={onSearchTextChange}
-      throttle
-      isShowingDetail={results.length > 0}
+      isShowingDetail={results.length > 0 && showDetail}
       searchBarAccessory={
         <List.Dropdown tooltip="Filter by collection" value={selectedCollection} onChange={setSelectedCollection}>
           <List.Dropdown.Item title="All Collections" value="all" />
@@ -186,21 +268,43 @@ export function SearchView({ searchMode }: SearchViewProps) {
         </List.Section>
       )}
 
+      {/* Pending search prompt for expensive search modes */}
+      {pendingSearch && !isSearching && (
+        <List.Section title="Ready to Search">
+          <List.Item
+            title={`Search for "${searchText}"`}
+            subtitle="Press Enter to run search"
+            icon={{ source: Icon.MagnifyingGlass, tintColor: Color.Blue }}
+            actions={
+              <ActionPanel>
+                <Action
+                  title="Run Search"
+                  icon={Icon.MagnifyingGlass}
+                  onAction={triggerSearch}
+                />
+              </ActionPanel>
+            }
+          />
+        </List.Section>
+      )}
+
       {/* Search results */}
       {searchText.trim() && results.length > 0 && (
         <List.Section title={`Results (${results.length})`}>
-          {results.map((result) => (
+          {results.map((result, index) => (
             <SearchResultItem
-              key={`${result.collection}-${result.docid}`}
+              key={`${result.collection || "unknown"}-${result.docid}-${index}`}
               result={result}
               collectionPath={collectionPaths[result.collection]}
+              showDetail={showDetail}
+              onToggleDetail={() => setShowDetail(!showDetail)}
             />
           ))}
         </List.Section>
       )}
 
-      {/* Empty state with query - no results */}
-      {searchText.trim() && results.length === 0 && !isLoading && (
+      {/* Empty state with query - no results (only show if not pending and not loading) */}
+      {searchText.trim() && results.length === 0 && !isLoading && !pendingSearch && (
         <List.EmptyView
           icon={Icon.MagnifyingGlass}
           title="No Results Found"
@@ -231,6 +335,13 @@ export function SearchView({ searchMode }: SearchViewProps) {
                           setSearchText(item.query);
                           performSearch(item.query);
                         }}
+                      />
+                      <Action
+                        title="Clear History"
+                        icon={Icon.Trash}
+                        style={Action.Style.Destructive}
+                        shortcut={{ modifiers: ["cmd", "shift"], key: "backspace" }}
+                        onAction={clearHistory}
                       />
                     </ActionPanel>
                   }

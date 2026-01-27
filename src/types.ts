@@ -1,14 +1,16 @@
 // QMD Search Result from `qmd search/vsearch/query --json`
 export interface QmdSearchResult {
-  path: string; // Collection-relative path (e.g., "docs/guide.md")
-  docid: string; // 6-character hash (e.g., "a1b2c3")
-  title: string; // From first heading or filename
+  docid: string; // 6-character hash (e.g., "#a1b2c3")
   score: number; // 0.0-1.0 relevance score
-  snippet: string; // Context with highlighted terms
-  collection: string; // Collection name
-  context?: string; // Path context if configured
+  file: string; // qmd:// URL (e.g., "qmd://obsidian/docs/guide.md")
+  title: string; // From first heading or filename
+  context?: string; // Collection context description
+  snippet: string; // Context with highlighted terms and position info
+  // Computed fields (added by extension)
+  collection?: string; // Parsed from file URL
+  path?: string; // Relative path parsed from file URL
   line?: number; // Line number of match for jumping
-  fullPath?: string; // Absolute filesystem path (computed by extension)
+  fullPath?: string; // Absolute filesystem path
 }
 
 // QMD Collection from `qmd collection list --json`

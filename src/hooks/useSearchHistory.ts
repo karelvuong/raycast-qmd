@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { LocalStorage } from "@raycast/api";
 import { SearchHistoryItem, SearchMode } from "../types";
 
@@ -35,7 +35,7 @@ export function useSearchHistory(): UseSearchHistoryResult {
     loadHistory();
   }, []);
 
-  const addToHistory = async (query: string, mode: SearchMode) => {
+  const addToHistory = useCallback(async (query: string, mode: SearchMode) => {
     if (!query.trim()) return;
 
     const newItem: SearchHistoryItem = {
@@ -44,29 +44,29 @@ export function useSearchHistory(): UseSearchHistoryResult {
       timestamp: Date.now(),
     };
 
-    // Remove existing entry with same query and mode
-    const filtered = history.filter((item) => !(item.query === newItem.query && item.mode === newItem.mode));
+    setHistory((prev) => {
+      // Remove existing entry with same query and mode
+      const filtered = prev.filter((item) => !(item.query === newItem.query && item.mode === newItem.mode));
+      // Add new item at the beginning
+      const newHistory = [newItem, ...filtered].slice(0, MAX_HISTORY_ITEMS);
 
-    // Add new item at the beginning
-    const newHistory = [newItem, ...filtered].slice(0, MAX_HISTORY_ITEMS);
+      // Save to storage (fire and forget)
+      LocalStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory)).catch((error) => {
+        console.error("Failed to save search history:", error);
+      });
 
-    setHistory(newHistory);
+      return newHistory;
+    });
+  }, []);
 
-    try {
-      await LocalStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory));
-    } catch (error) {
-      console.error("Failed to save search history:", error);
-    }
-  };
-
-  const clearHistory = async () => {
+  const clearHistory = useCallback(async () => {
     setHistory([]);
     try {
       await LocalStorage.removeItem(HISTORY_KEY);
     } catch (error) {
       console.error("Failed to clear search history:", error);
     }
-  };
+  }, []);
 
   return {
     history,
