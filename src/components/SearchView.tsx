@@ -212,6 +212,27 @@ export function SearchView({ searchMode }: SearchViewProps) {
     return `${getSearchModeTitle()} markdown files...`;
   };
 
+  // Get empty state content based on search mode
+  const getEmptyStateContent = () => {
+    switch (searchMode) {
+      case "search":
+        return {
+          title: "No Matches Found",
+          description: "No exact keyword matches. Try Semantic Search (⌘2) for meaning-based results.",
+        };
+      case "vsearch":
+        return {
+          title: "No Semantic Matches",
+          description: "Try different phrasing or Hybrid Search (⌘3) which combines keywords with semantic matching.",
+        };
+      case "query":
+        return {
+          title: "No Results Found",
+          description: "No matches found with hybrid search. Check your collections or try broader terms.",
+        };
+    }
+  };
+
   // Show loading state while checking dependencies
   if (isDepsLoading) {
     return <List isLoading={true} searchBarPlaceholder="Checking dependencies..." />;
@@ -305,10 +326,8 @@ export function SearchView({ searchMode }: SearchViewProps) {
       {searchText.trim() && results.length === 0 && !isLoading && !pendingSearch && (
         <List.EmptyView
           icon={Icon.MagnifyingGlass}
-          title="No Results Found"
-          description={`Try a different search term or check your collections. ${
-            searchMode !== "vsearch" ? "You can also try Semantic Search for broader matches." : ""
-          }`}
+          title={getEmptyStateContent().title}
+          description={getEmptyStateContent().description}
         />
       )}
 
@@ -359,8 +378,14 @@ export function SearchView({ searchMode }: SearchViewProps) {
           {collections.length > 0 && history.length === 0 && (
             <List.EmptyView
               icon={Icon.MagnifyingGlass}
-              title={`${getSearchModeTitle()}`}
-              description={`Type to search across ${collections.length} collection${collections.length === 1 ? "" : "s"}`}
+              title={getSearchModeTitle()}
+              description={
+                searchMode === "search"
+                  ? `Fast keyword matching across ${collections.length} collection${collections.length === 1 ? "" : "s"}`
+                  : searchMode === "vsearch"
+                    ? `AI-powered meaning-based search across ${collections.length} collection${collections.length === 1 ? "" : "s"}`
+                    : `Combined keyword + semantic search across ${collections.length} collection${collections.length === 1 ? "" : "s"}`
+              }
             />
           )}
         </>
