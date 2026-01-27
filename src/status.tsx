@@ -33,12 +33,12 @@ interface StatusResult {
 }
 
 async function fetchStatus(): Promise<StatusResult> {
-  statusLogger.info("Fetching QMD status");
+  statusLogger.debug("Fetching QMD status");
   const result = await runQmdRaw(["status"]);
 
   if (result.success && result.data) {
     const parsed = parseStatus(result.data);
-    statusLogger.info("Status parsed", {
+    statusLogger.debug("Status parsed", {
       collections: parsed?.collections.length,
     });
     return { status: parsed };

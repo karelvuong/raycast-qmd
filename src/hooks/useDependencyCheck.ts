@@ -14,9 +14,9 @@ interface UseDependencyCheckResult {
 }
 
 async function checkDependencies(): Promise<DependencyStatus> {
-  depsLogger.info("Checking all dependencies");
+  depsLogger.debug("Checking all dependencies");
   const status = await checkAllDependencies();
-  depsLogger.info("Dependency check complete", status);
+  depsLogger.debug("Dependency check complete", status);
   return status;
 }
 
