@@ -70,7 +70,7 @@ export function useSearchHistory(searchMode: SearchMode): UseSearchHistoryResult
         searchLogger.error("Failed to save search history", { error });
       }
     },
-    [historyKey, history]
+    [historyKey, history],
   );
 
   const clearHistory = useCallback(async () => {
