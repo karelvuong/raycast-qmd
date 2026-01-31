@@ -321,7 +321,7 @@ export async function checkAllDependencies(): Promise<DependencyStatus> {
  */
 export async function runQmd<T>(
   args: string[],
-  options: { timeout?: number; includeJson?: boolean } = {},
+  options: { timeout?: number; includeJson?: boolean } = {}
 ): Promise<QmdResult<T>> {
   const { timeout = 30_000, includeJson = true } = options;
 
@@ -579,6 +579,8 @@ export function getScoreRaycastColor(score: number): string {
     case "yellow":
       return "#FF9500";
     case "red":
+      return "#FF3B30";
+    default:
       return "#FF3B30";
   }
 }

@@ -61,7 +61,7 @@ export default function Command() {
 
   useEffect(() => {
     loadCollections();
-  }, [isReady]);
+  }, [loadCollections]);
 
   if (isDepsLoading) {
     return <List isLoading={true} searchBarPlaceholder="Checking dependencies..." />;
