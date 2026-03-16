@@ -215,7 +215,7 @@ export function SearchView({ searchMode }: SearchViewProps) {
       showLineNumbers,
       showAllResults,
       addToHistory,
-    ]
+    ],
   );
 
   // Handle search text change

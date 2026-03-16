@@ -466,7 +466,7 @@ function parseQmdHint(text: string): QmdHint | undefined {
  */
 export async function runQmd<T>(
   args: string[],
-  options: { timeout?: number; includeJson?: boolean } = {}
+  options: { timeout?: number; includeJson?: boolean } = {},
 ): Promise<QmdResult<T>> {
   const { timeout = 30_000, includeJson = true } = options;
 
